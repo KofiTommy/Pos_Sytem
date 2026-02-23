@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-business-title>Mother Care - Premium Baby Products</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .hero-orb {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+            filter: blur(1px);
+            opacity: 0.22;
+            animation: heroFloat 9s ease-in-out infinite;
+        }
+
+        .hero-orb.one {
+            width: 180px;
+            height: 180px;
+            top: 10%;
+            right: 8%;
+            background: #fff;
+            animation-delay: 0s;
+        }
+
+        .hero-orb.two {
+            width: 120px;
+            height: 120px;
+            bottom: 14%;
+            right: 25%;
+            background: #ffd8ec;
+            animation-delay: 1.5s;
+        }
+
+        .hero-orb.three {
+            width: 90px;
+            height: 90px;
+            bottom: 30%;
+            left: 8%;
+            background: #d7efff;
+            animation-delay: 3s;
+        }
+
+        .cta-section .btn {
+            animation: ctaPulse 2.3s ease-in-out infinite;
+        }
+
+        .reveal-up {
+            opacity: 0;
+            transform: translateY(28px);
+            transition: opacity 0.7s ease, transform 0.7s ease;
+            will-change: opacity, transform;
+        }
+
+        .reveal-up.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .footer-luxe {
+            background: linear-gradient(145deg, #0f172a, #1e293b);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .footer-luxe::before {
+            content: "";
+            position: absolute;
+            top: -120px;
+            right: -90px;
+            width: 280px;
+            height: 280px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(148, 197, 255, 0.22), rgba(148, 197, 255, 0));
+            pointer-events: none;
+        }
+
+        .footer-panel {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 16px;
+            padding: 1rem 1.1rem;
+            height: 100%;
+            backdrop-filter: blur(2px);
+        }
+
+        .footer-title {
+            font-weight: 700;
+            letter-spacing: 0.2px;
+            margin-bottom: 0.8rem;
+        }
+
+        .footer-links a {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            color: #d6deeb;
+            text-decoration: none;
+            padding: 0.42rem 0.75rem;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            margin-right: 0.45rem;
+            margin-bottom: 0.55rem;
+            transition: transform 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+        }
+
+        .footer-links a:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.16);
+            transform: translateY(-2px);
+        }
+
+        .footer-contact-line {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            color: #d6deeb;
+            margin-bottom: 0.6rem;
+        }
+
+        .footer-contact-line i {
+            width: 20px;
+            text-align: center;
+            color: #8ec5ff;
+        }
+
+        @keyframes heroFloat {
+            0%, 100% { transform: translateY(0) translateX(0); }
+            50% { transform: translateY(-14px) translateX(8px); }
+        }
+
+        @keyframes ctaPulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 0 rgba(255, 255, 255, 0); }
+            50% { transform: scale(1.03); box-shadow: 0 0 0 8px rgba(255, 255, 255, 0.08); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .hero-orb,
+            .cta-section .btn,
+            .reveal-up {
+                animation: none !important;
+                transition: none !important;
+                transform: none !important;
+                opacity: 1 !important;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-light shadow-sm sticky-top">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="index.html">
+                <img data-business-logo class="d-none me-1" style="height: 30px; width: auto;" alt="Business logo">
+                <i class="fas fa-baby"></i> <span data-business-name>Mother Care</span>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="index.html">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="pages/products.html">Products</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="pages/cart.html">
+                            <i class="fas fa-shopping-cart"></i> Cart <span class="badge bg-danger"
+                                id="cartCount">0</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link btn btn-sm btn-primary text-white ms-2" href="pages/login.html" data-admin-link>
+                            <i class="fas fa-sign-in-alt"></i> Staff Login
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero-section">
+        <div class="hero-orb one"></div>
+        <div class="hero-orb two"></div>
+        <div class="hero-orb three"></div>
+        <div class="container h-100">
+            <div class="row h-100 align-items-center">
+                <div class="col-lg-6 text-center text-lg-start">
+                    <h1 class="display-4 fw-bold mb-4 text-white">Welcome to <span data-business-name>Mother Care</span></h1>
+                    <p class="lead mb-4 text-white">Premium baby care products for your little ones. Quality you can
+                        trust.</p>
+                    <a href="pages/products.html" class="btn btn-primary btn-lg me-3">
+                        <i class="fas fa-shopping-bag"></i> Shop Now
+                    </a>
+                    <a href="#featured" class="btn btn-outline-light btn-lg">
+                        <i class="fas fa-arrow-down"></i> View Featured
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Featured Products Section -->
+    <section id="featured" class="py-5 bg-light">
+        <div class="container reveal-up">
+            <h2 class="text-center mb-5 fw-bold">Featured Products</h2>
+            <div class="row" id="featuredProducts">
+                <div class="col-md-4 mb-4">
+                    <div class="placeholder-glow">
+                        <div class="card placeholder-wave" style="height: 400px;">
+                            <div class="card-body">
+                                <span class="placeholder col-6"></span>
+                                <span class="placeholder col-5"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <div class="placeholder-glow">
+                        <div class="card placeholder-wave" style="height: 400px;">
+                            <div class="card-body">
+                                <span class="placeholder col-6"></span>
+                                <span class="placeholder col-5"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <div class="placeholder-glow">
+                        <div class="card placeholder-wave" style="height: 400px;">
+                            <div class="card-body">
+                                <span class="placeholder col-6"></span>
+                                <span class="placeholder col-5"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Why Choose Us Section -->
+    <section class="py-5">
+        <div class="container reveal-up">
+            <h2 class="text-center mb-5 fw-bold">Why Choose <span data-business-name>Mother Care</span>?</h2>
+            <div class="row">
+                <div class="col-md-4 text-center mb-4">
+                    <div class="feature-icon">
+                        <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                    </div>
+                    <h5>Premium Quality</h5>
+                    <p>All products are carefully selected and tested for safety and quality.</p>
+                </div>
+                <div class="col-md-4 text-center mb-4">
+                    <div class="feature-icon">
+                        <i class="fas fa-truck fa-3x text-primary mb-3"></i>
+                    </div>
+                    <h5>Fast Delivery</h5>
+                    <p>Quick and reliable delivery to your doorstep within 24-48 hours.</p>
+                </div>
+                <div class="col-md-4 text-center mb-4">
+                    <div class="feature-icon">
+                        <i class="fas fa-headset fa-3x text-info mb-3"></i>
+                    </div>
+                    <h5>Expert Support</h5>
+                    <p>Our team is ready to help you with product recommendations and questions.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta-section">
+        <div class="container text-center text-white reveal-up">
+            <h2 class="mb-4">Ready to Shop?</h2>
+            <p class="lead mb-4">Browse our complete collection of premium mother care products</p>
+            <a href="pages/products.html" class="btn btn-light btn-lg">
+                <i class="fas fa-shopping-bag"></i> Start Shopping
+            </a>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer-luxe text-white py-5">
+        <div class="container reveal-up">
+            <div class="row g-3">
+                <div class="col-md-4 mb-4">
+                    <div class="footer-panel">
+                        <h5 class="footer-title"><i class="fas fa-baby"></i> <span data-business-name>Mother Care</span></h5>
+                        <p class="mb-0 text-white-50">Trusted essentials, safe choices, and a smooth shopping experience for every parent.</p>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <div class="footer-panel">
+                        <h5 class="footer-title">Quick Links</h5>
+                        <div class="footer-links">
+                            <a href="index.html"><i class="fas fa-house"></i> Home</a>
+                            <a href="pages/products.html"><i class="fas fa-box-open"></i> Products</a>
+                            <a href="pages/cart.html"><i class="fas fa-cart-shopping"></i> Cart</a>
+                            <a href="pages/contact.html"><i class="fas fa-envelope-open-text"></i> Contact</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <div class="footer-panel">
+                        <h5 class="footer-title">Contact Info</h5>
+                        <div class="footer-contact-line">
+                            <i class="fas fa-phone"></i>
+                            <span data-business-phone>+233 000 000 000</span>
+                        </div>
+                        <div class="footer-contact-line mb-0">
+                            <i class="fas fa-envelope"></i>
+                            <span data-business-email>info@mothercare.com</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <hr class="bg-white-50 opacity-50">
+            <div class="text-center text-white-50">
+                <p>&copy; 2026 <span data-business-name>Mother Care</span>. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/business-info.js"></script>
+    <script src="js/scripts.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const revealItems = document.querySelectorAll('.reveal-up');
+            if (!revealItems.length) return;
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach((entry) => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('visible');
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, { threshold: 0.12 });
+
+            revealItems.forEach((item) => observer.observe(item));
+        });
+    </script>
+</body>
+
+</html>
