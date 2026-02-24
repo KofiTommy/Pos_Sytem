@@ -1,11 +1,11 @@
 -- phpMyAdmin SQL Dump
--- version 5.2.1
+-- version 5.2.2
 -- https://www.phpmyadmin.net/
 --
--- Host: 127.0.0.1
--- Generation Time: Feb 24, 2026 at 12:01 AM
--- Server version: 10.4.32-MariaDB
--- PHP Version: 8.1.25
+-- Host: 127.0.0.1:3306
+-- Generation Time: Feb 24, 2026 at 12:20 PM
+-- Server version: 11.8.3-MariaDB-log
+-- PHP Version: 7.2.34
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -18,7 +18,7 @@ SET time_zone = "+00:00";
 /*!40101 SET NAMES utf8mb4 */;
 
 --
--- Database: `possystem_db`
+-- Database: `u131576917_db_GIV4iRfT`
 --
 
 -- --------------------------------------------------------
@@ -107,6 +107,9 @@ CREATE TABLE `orders` (
   `total` decimal(10,2) NOT NULL,
   `notes` text DEFAULT NULL,
   `status` varchar(50) DEFAULT 'pending',
+  `payment_method` varchar(40) NOT NULL DEFAULT 'cod',
+  `payment_status` varchar(40) NOT NULL DEFAULT 'unpaid',
+  `payment_reference` varchar(120) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -115,8 +118,9 @@ CREATE TABLE `orders` (
 -- Dumping data for table `orders`
 --
 
-INSERT INTO `orders` (`id`, `customer_name`, `customer_email`, `customer_phone`, `address`, `city`, `postal_code`, `subtotal`, `tax`, `shipping`, `total`, `notes`, `status`, `created_at`, `updated_at`) VALUES
-(8, 'Walk-in Customer', 'pos@mothercare.local', 'N/A', 'In-store POS', 'N/A', 'N/A', 50.00, 5.00, 0.00, 55.00, 'POS Sale | Payment: cash | Tax Rate: 10.00% | Discount: 0.00', 'paid', '2026-02-23 22:49:17', '2026-02-23 22:49:17');
+INSERT INTO `orders` (`id`, `customer_name`, `customer_email`, `customer_phone`, `address`, `city`, `postal_code`, `subtotal`, `tax`, `shipping`, `total`, `notes`, `status`, `payment_method`, `payment_status`, `payment_reference`, `created_at`, `updated_at`) VALUES
+(8, 'Walk-in Customer', 'pos@mothercare.local', 'N/A', 'In-store POS', 'N/A', 'N/A', 50.00, 5.00, 0.00, 55.00, 'POS Sale | Payment: cash | Tax Rate: 10.00% | Discount: 0.00', 'paid', 'cod', 'unpaid', NULL, '2026-02-23 22:49:17', '2026-02-23 22:49:17'),
+(9, 'appiah thomas', 'appiahthomas97@gmail.com', '0245067195', 'Ffriddoedd Village, Tefgan Hall, Y109', 'Bangor', 'LL57 2TW', 45.99, 4.60, 5.00, 55.59, '', 'pending', 'cod', 'unpaid', NULL, '2026-02-24 11:12:54', '2026-02-24 11:12:54');
 
 -- --------------------------------------------------------
 
@@ -139,7 +143,62 @@ CREATE TABLE `order_items` (
 --
 
 INSERT INTO `order_items` (`id`, `order_id`, `product_id`, `product_name`, `quantity`, `price`, `created_at`) VALUES
-(12, 8, 11, 'Cerelac', 1, 50.00, '2026-02-23 22:49:17');
+(12, 8, 11, 'Cerelac', 1, 50.00, '2026-02-23 22:49:17'),
+(13, 9, 1, 'Premium Baby Bottle Set', 1, 45.99, '2026-02-24 11:12:54');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `payment_gateway_settings`
+--
+
+CREATE TABLE `payment_gateway_settings` (
+  `id` tinyint(3) UNSIGNED NOT NULL,
+  `gateway` varchar(40) NOT NULL DEFAULT 'paystack',
+  `enabled` tinyint(1) NOT NULL DEFAULT 0,
+  `use_sandbox` tinyint(1) NOT NULL DEFAULT 1,
+  `public_key` varchar(200) DEFAULT '',
+  `secret_key_ciphertext` text DEFAULT NULL,
+  `secret_key_iv` varchar(120) DEFAULT NULL,
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `payment_gateway_settings`
+--
+
+INSERT INTO `payment_gateway_settings` (`id`, `gateway`, `enabled`, `use_sandbox`, `public_key`, `secret_key_ciphertext`, `secret_key_iv`, `updated_at`) VALUES
+(1, 'paystack', 0, 1, '', NULL, NULL, '2026-02-24 11:30:19');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `payment_intents`
+--
+
+CREATE TABLE `payment_intents` (
+  `id` int(11) NOT NULL,
+  `reference` varchar(120) NOT NULL,
+  `customer_name` varchar(200) NOT NULL,
+  `customer_email` varchar(160) NOT NULL,
+  `customer_phone` varchar(40) NOT NULL,
+  `address` varchar(255) NOT NULL,
+  `city` varchar(120) NOT NULL,
+  `postal_code` varchar(40) DEFAULT '',
+  `notes` text DEFAULT NULL,
+  `cart_json` longtext NOT NULL,
+  `subtotal` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `tax` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `shipping` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `total` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `status` varchar(40) NOT NULL DEFAULT 'initialized',
+  `order_id` int(11) DEFAULT NULL,
+  `paystack_access_code` varchar(120) DEFAULT NULL,
+  `gateway_response` longtext DEFAULT NULL,
+  `paid_at` datetime DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
@@ -165,7 +224,7 @@ CREATE TABLE `products` (
 --
 
 INSERT INTO `products` (`id`, `name`, `description`, `price`, `category_id`, `category`, `image`, `stock`, `featured`, `created_at`) VALUES
-(1, 'Premium Baby Bottle Set', 'Complete feeding bottle set with sterilizer', 45.99, NULL, 'Feeding & Nursing', 'bottle.jpg', 15, 1, '2026-02-23 13:00:10'),
+(1, 'Premium Baby Bottle Set', 'Complete feeding bottle set with sterilizer', 45.99, NULL, 'Feeding & Nursing', 'bottle.jpg', 14, 1, '2026-02-23 13:00:10'),
 (2, 'Organic Baby Diapers', 'Size 1 - Newborn, 200 count pack', 32.50, NULL, 'Diapers & Wipes', 'diapers.jpg', 21, 1, '2026-02-23 13:00:10'),
 (3, 'Soft Baby Clothing Set', '5-piece organic cotton clothing set', 55.00, NULL, 'Clothing', 'clothing.jpg', 12, 1, '2026-02-23 13:00:10'),
 (4, 'Digital Baby Monitor', '5-inch screen with night vision', 85.99, NULL, 'Safety & Health', 'monitor.jpg', 8, 0, '2026-02-23 13:00:10'),
@@ -234,7 +293,8 @@ ALTER TABLE `orders`
   ADD KEY `customer_email` (`customer_email`),
   ADD KEY `created_at` (`created_at`),
   ADD KEY `idx_orders_customer_email` (`customer_email`),
-  ADD KEY `idx_orders_status` (`status`);
+  ADD KEY `idx_orders_status` (`status`),
+  ADD KEY `idx_orders_payment_reference` (`payment_reference`);
 
 --
 -- Indexes for table `order_items`
@@ -242,6 +302,21 @@ ALTER TABLE `orders`
 ALTER TABLE `order_items`
   ADD PRIMARY KEY (`id`),
   ADD KEY `idx_order_items_order_id` (`order_id`);
+
+--
+-- Indexes for table `payment_gateway_settings`
+--
+ALTER TABLE `payment_gateway_settings`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- Indexes for table `payment_intents`
+--
+ALTER TABLE `payment_intents`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `reference` (`reference`),
+  ADD KEY `idx_payment_intents_status` (`status`),
+  ADD KEY `idx_payment_intents_order_id` (`order_id`);
 
 --
 -- Indexes for table `products`
@@ -280,13 +355,19 @@ ALTER TABLE `contact_messages`
 -- AUTO_INCREMENT for table `orders`
 --
 ALTER TABLE `orders`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- AUTO_INCREMENT for table `order_items`
 --
 ALTER TABLE `order_items`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
+
+--
+-- AUTO_INCREMENT for table `payment_intents`
+--
+ALTER TABLE `payment_intents`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `products`

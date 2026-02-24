@@ -43,12 +43,7 @@ try {
     }
 
     $stmt->execute();
-    $result = $stmt->get_result();
-    
-    if (!$result) {
-        throw new Exception("Query error: " . $conn->error);
-    }
-    
+
     $products = [];
     $imageMap = [
         'bottle.jpg' => 'pexels-jonathan-nenemann-12114822.jpg',
@@ -63,7 +58,7 @@ try {
         'sheets.jpg' => 'pexels-nerosable-19015553.jpg'
     ];
 
-    while ($row = $result->fetch_assoc()) {
+    $fetchRow = function (array $row) use (&$products, $imageMap) {
         $imageName = $row['image'] ?? '';
 
         if ($imageName !== '' && isset($imageMap[$imageName])) {
@@ -80,6 +75,31 @@ try {
         $row['featured'] = intval($row['featured'] ?? 0);
 
         $products[] = $row;
+    };
+
+    if (method_exists($stmt, 'get_result')) {
+        $result = $stmt->get_result();
+        if (!$result) {
+            throw new Exception("Query error: " . $conn->error);
+        }
+        while ($row = $result->fetch_assoc()) {
+            $fetchRow($row);
+        }
+    } else {
+        $stmt->bind_result($id, $name, $description, $price, $category, $image, $stock, $featuredFlag, $createdAt);
+        while ($stmt->fetch()) {
+            $fetchRow([
+                'id' => $id,
+                'name' => $name,
+                'description' => $description,
+                'price' => $price,
+                'category' => $category,
+                'image' => $image,
+                'stock' => $stock,
+                'featured' => $featuredFlag,
+                'created_at' => $createdAt
+            ]);
+        }
     }
     $stmt->close();
     

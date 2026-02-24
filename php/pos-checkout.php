@@ -3,8 +3,11 @@ header('Content-Type: application/json');
 include 'admin-auth.php';
 require_roles_api(['owner', 'sales']);
 include 'db-connection.php';
+include 'payment-schema.php';
 
 try {
+    ensure_payment_schema($conn);
+
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         throw new Exception('Invalid request method');
     }
@@ -96,15 +99,17 @@ try {
             ($notes !== '' ? ' | ' . $notes : '')
         );
 
+        $paymentStatus = 'paid';
+        $paymentRef = null;
         $orderStmt = $conn->prepare("INSERT INTO orders
-            (customer_name, customer_email, customer_phone, address, city, postal_code, subtotal, tax, shipping, total, notes, status, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'paid', NOW())");
+            (customer_name, customer_email, customer_phone, address, city, postal_code, subtotal, tax, shipping, total, notes, status, payment_method, payment_status, payment_reference, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'paid', ?, ?, ?, NOW())");
 
         $address = 'In-store POS';
         $city = 'N/A';
         $postalCode = 'N/A';
         $orderStmt->bind_param(
-            'ssssssdddds',
+            'ssssssddddssss',
             $customerName,
             $customerEmail,
             $customerPhone,
@@ -115,7 +120,10 @@ try {
             $tax,
             $shipping,
             $total,
-            $fullNotes
+            $fullNotes,
+            $paymentMethod,
+            $paymentStatus,
+            $paymentRef
         );
         $orderStmt->execute();
         $orderId = $conn->insert_id;

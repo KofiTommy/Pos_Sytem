@@ -124,6 +124,7 @@ $currentRole = current_user_role();
                 <a href="pos.php" class="btn btn-primary btn-sm">New Sale (POS)</a>
                 <a href="manage-products.php" class="btn btn-outline-success btn-sm">Manage Products</a>
                 <a href="business-settings.php" class="btn btn-outline-primary btn-sm">Business Info</a>
+                <a href="payment-settings.php" class="btn btn-outline-secondary btn-sm">Payment Settings</a>
                 <a href="users.php" class="btn btn-outline-warning btn-sm">Manage Staff</a>
                 <a href="sales.php" class="btn btn-outline-secondary btn-sm">Sales History</a>
                 <a href="../products.html" class="btn btn-outline-dark btn-sm">View Storefront</a>

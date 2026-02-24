@@ -3,6 +3,7 @@ header('Content-Type: application/json');
 include 'admin-auth.php';
 require_roles_api(['owner', 'sales']);
 include 'db-connection.php';
+include 'payment-schema.php';
 
 function respond($success, $message = '', $extra = []) {
     echo json_encode(array_merge([
@@ -13,6 +14,8 @@ function respond($success, $message = '', $extra = []) {
 }
 
 try {
+    ensure_payment_schema($conn);
+
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     $rawBody = file_get_contents('php://input');
     $body = json_decode($rawBody, true);
@@ -127,7 +130,7 @@ try {
     $orderId = isset($_GET['order_id']) ? intval($_GET['order_id']) : 0;
 
     if ($orderId > 0) {
-        $orderStmt = $conn->prepare("SELECT id, customer_name, subtotal, tax, shipping, total, status, notes, created_at
+        $orderStmt = $conn->prepare("SELECT id, customer_name, subtotal, tax, shipping, total, status, payment_method, payment_status, payment_reference, notes, created_at
                                      FROM orders
                                      WHERE id = ?");
         $orderStmt->bind_param('i', $orderId);
@@ -167,12 +170,12 @@ try {
         $limit = 500;
     }
 
-        $stmt = $conn->prepare("SELECT o.id, o.customer_name, o.total, o.status, o.created_at,
+        $stmt = $conn->prepare("SELECT o.id, o.customer_name, o.total, o.status, o.payment_method, o.payment_status, o.payment_reference, o.created_at,
                                        COUNT(oi.id) AS item_count
                                 FROM orders o
                                 LEFT JOIN order_items oi ON oi.order_id = o.id
                                 WHERE DATE(o.created_at) = ?
-                                GROUP BY o.id, o.customer_name, o.total, o.status, o.created_at
+                                GROUP BY o.id, o.customer_name, o.total, o.status, o.payment_method, o.payment_status, o.payment_reference, o.created_at
                                 ORDER BY o.id ASC
                                 LIMIT ?");
     $stmt->bind_param('si', $date, $limit);

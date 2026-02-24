@@ -1,5 +1,19 @@
-// Initialize cart from localStorage
-let cart = JSON.parse(localStorage.getItem('cart')) || [];
+// Initialize cart from localStorage (guard against invalid/stale data)
+let cart = [];
+try {
+    const storedCart = localStorage.getItem('cart');
+    if (storedCart) {
+        const parsedCart = JSON.parse(storedCart);
+        cart = Array.isArray(parsedCart) ? parsedCart : [];
+    }
+} catch (error) {
+    cart = [];
+    try {
+        localStorage.removeItem('cart');
+    } catch (storageError) {
+        // Ignore storage cleanup failures.
+    }
+}
 
 function escapeHtml(value) {
     return String(value ?? '')
@@ -12,6 +26,25 @@ function escapeHtml(value) {
 
 function sanitizeImageFilename(value) {
     return String(value ?? '').replace(/[^a-zA-Z0-9._-]/g, '');
+}
+
+function addToCartFromElement(element) {
+    if (!element) return;
+    const productId = Number(element.dataset.productId || 0);
+    const productName = String(element.dataset.productName || '');
+    const productPrice = Number(element.dataset.productPrice || 0);
+    const productImage = String(element.dataset.productImage || '');
+    addToCart(productId, productName, productPrice, productImage);
+}
+
+function persistCart() {
+    try {
+        localStorage.setItem('cart', JSON.stringify(cart));
+        return true;
+    } catch (error) {
+        showError('Unable to save cart on this browser session.');
+        return false;
+    }
 }
 
 // Update cart count
@@ -82,7 +115,7 @@ function addToCart(productId, productName, productPrice, productImage) {
         });
     }
 
-    localStorage.setItem('cart', JSON.stringify(cart));
+    persistCart();
     updateCartCount();
     showNotification('Product added to cart successfully!');
 }
@@ -91,7 +124,7 @@ function addToCart(productId, productName, productPrice, productImage) {
 function removeFromCart(productId) {
     const normalizedId = String(productId);
     cart = cart.filter((item) => String(item.id) !== normalizedId);
-    localStorage.setItem('cart', JSON.stringify(cart));
+    persistCart();
     updateCartCount();
 }
 
@@ -104,7 +137,7 @@ function updateQuantity(productId, quantity) {
             removeFromCart(productId);
         } else {
             item.quantity = Number(quantity);
-            localStorage.setItem('cart', JSON.stringify(cart));
+            persistCart();
         }
         updateCartCount();
     }
@@ -172,14 +205,14 @@ function loadFeaturedProducts() {
                     const productName = escapeHtml(productNameRaw);
                     const productPrice = Number(product.price || 0);
                     const productImage = sanitizeImageFilename(product.image || '');
-                    const productImageJs = JSON.stringify(productImage);
-                    const productNameJs = JSON.stringify(productNameRaw);
                     const productDescription = escapeHtml(String(product.description || '').substring(0, 60));
                     const productStock = Number(product.stock || 0);
+                    const productNameAttr = escapeHtml(productNameRaw);
+                    const productImageAttr = escapeHtml(productImage);
 
                     return `
                         <div class="col-md-4 mb-4">
-                            <div class="card product-card">
+                            <div class="card product-card product-card-clickable" role="button" tabindex="0" aria-label="Add ${productName} to cart" data-product-id="${productId}" data-product-name="${productNameAttr}" data-product-price="${productPrice}" data-product-image="${productImageAttr}" onclick="addToCartFromElement(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();addToCartFromElement(this);}">
                                 <img src="assets/images/${productImage}" class="card-img-top" alt="${productName}" loading="lazy" decoding="async">
                                 <div class="card-body">
                                     <h5 class="card-title">${productName}</h5>
@@ -188,7 +221,7 @@ function loadFeaturedProducts() {
                                         <span class="product-price">GHS ${productPrice.toFixed(2)}</span>
                                         <span class="badge bg-success">${productStock} in stock</span>
                                     </div>
-                                    <button class="btn btn-primary btn-sm w-100 mt-3" onclick="addToCart(${productId}, ${productNameJs}, ${productPrice}, ${productImageJs})">
+                                    <button type="button" class="btn btn-primary btn-sm w-100 mt-3" data-product-id="${productId}" data-product-name="${productNameAttr}" data-product-price="${productPrice}" data-product-image="${productImageAttr}" onclick="event.stopPropagation(); addToCartFromElement(this)">
                                         <i class="fas fa-shopping-cart"></i> Add to Cart
                                     </button>
                                 </div>

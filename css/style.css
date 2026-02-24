@@ -176,6 +176,10 @@ a:hover {
     box-shadow: var(--mc-shadow-md);
 }
 
+.product-card-clickable {
+    cursor: pointer;
+}
+
 .product-card img {
     height: 250px;
     width: 100%;

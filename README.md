@@ -198,3 +198,40 @@ This project is created for Mother Care business. All rights reserved.
 **Built with**: HTML5, Bootstrap 5, CSS3, JavaScript (ES6), PHP 7+, MySQL
 
 **Last Updated**: February 23, 2026
+
+## Paystack Mobile Money Setup
+
+This project includes Paystack Mobile Money checkout with:
+
+- `php/paystack-init.php` (initialize payment)
+- `php/paystack-verify.php` (verify + finalize order)
+- `php/paystack-webhook.php` (server-to-server webhook)
+
+### 1. Configure secret key on server
+
+Set environment variable:
+
+- `PAYSTACK_SECRET_KEY=sk_test_xxx` (sandbox) or `sk_live_xxx` (production)
+- Optional (recommended for UI-managed keys): `PAYMENT_SETTINGS_KEY=your-long-random-secret`
+
+### 2. Configure webhook URL in Paystack dashboard
+
+- `https://your-domain.com/possystem/php/paystack-webhook.php`
+
+For local XAMPP testing, use a public tunnel URL and map webhook to it.
+
+### 3. Apply migration once
+
+Run SQL file:
+
+- `sql/paystack_migration.sql`
+
+The app also auto-creates payment schema at runtime, but migration is recommended for production.
+
+### Admin UI Configuration
+
+Owner can configure Paystack from:
+
+- `pages/admin/payment-settings.php`
+
+If `PAYSTACK_SECRET_KEY` is set in environment, it overrides DB key in runtime.

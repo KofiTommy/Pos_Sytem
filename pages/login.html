@@ -153,7 +153,18 @@
                 method: 'POST',
                 body: formData
             })
-                .then(response => response.json())
+                .then(async (response) => {
+                    const rawText = await response.text();
+                    if (!rawText) {
+                        throw new Error('Empty response from server. Check PHP error logs or server configuration.');
+                    }
+
+                    try {
+                        return JSON.parse(rawText);
+                    } catch (parseError) {
+                        throw new Error(rawText.substring(0, 220));
+                    }
+                })
                 .then(data => {
                     if (data.success) {
                         showAlert('Login successful! Redirecting...', 'success');
@@ -168,7 +179,7 @@
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    showAlert('An error occurred. Please check your connection.', 'danger');
+                    showAlert(error.message || 'An error occurred. Please check your connection.', 'danger');
                     submitBtn.disabled = false;
                     submitBtn.innerHTML = originalText;
                 });

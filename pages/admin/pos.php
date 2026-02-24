@@ -23,6 +23,7 @@ $isOwner = $currentRole === 'owner';
                 <a href="dashboard.php" class="btn btn-outline-info btn-sm">Dashboard</a>
                 <a href="manage-products.php" class="btn btn-outline-success btn-sm">Manage Products</a>
                 <a href="business-settings.php" class="btn btn-outline-primary btn-sm">Business Info</a>
+                <a href="payment-settings.php" class="btn btn-outline-secondary btn-sm">Payment Settings</a>
                 <a href="users.php" class="btn btn-outline-warning btn-sm">Manage Staff</a>
                 <?php endif; ?>
                 <a href="sales.php" class="btn btn-outline-primary btn-sm">Sales History</a>
@@ -222,7 +223,7 @@ $isOwner = $currentRole === 'owner';
 
             grid.innerHTML = products.map((product) => `
                 <div class="col-md-6 col-xl-4">
-                    <div class="card h-100 product-card">
+                    <div class="card h-100 product-card ${Number(product.stock) > 0 ? 'product-card-clickable' : ''}" data-product-id="${product.id}" ${Number(product.stock) > 0 ? 'role="button" tabindex="0" aria-label="Add ' + escapeHtml(product.name) + ' to sale"' : ''}>
                         <img src="../../assets/images/${product.image}" class="card-img-top" alt="${product.name}">
                         <div class="card-body">
                             <h6 class="card-title mb-1">${product.name}</h6>
@@ -231,7 +232,7 @@ $isOwner = $currentRole === 'owner';
                                 <span class="fw-bold">${asMoney(product.price)}</span>
                                 <span class="badge ${Number(product.stock) > 0 ? 'bg-success' : 'bg-danger'}">${product.stock} in stock</span>
                             </div>
-                            <button class="btn btn-primary btn-sm w-100 mt-3" ${Number(product.stock) <= 0 ? 'disabled' : ''} onclick="addToCart(${product.id})">
+                            <button type="button" class="btn btn-primary btn-sm w-100 mt-3" ${Number(product.stock) <= 0 ? 'disabled' : ''} onclick="event.stopPropagation(); addToCart(${product.id})">
                                 Add to Sale
                             </button>
                         </div>
@@ -293,6 +294,24 @@ $isOwner = $currentRole === 'owner';
             cart.delete(Number(productId));
             renderCart();
         }
+
+        document.getElementById('productsGrid').addEventListener('click', (event) => {
+            const card = event.target.closest('.product-card[data-product-id]');
+            if (!card) return;
+            const productId = Number(card.getAttribute('data-product-id'));
+            if (!Number.isFinite(productId)) return;
+            addToCart(productId);
+        });
+
+        document.getElementById('productsGrid').addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            const card = event.target.closest('.product-card[data-product-id]');
+            if (!card) return;
+            event.preventDefault();
+            const productId = Number(card.getAttribute('data-product-id'));
+            if (!Number.isFinite(productId)) return;
+            addToCart(productId);
+        });
 
         function clearCart(clearResult = true) {
             cart.clear();

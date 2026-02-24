@@ -24,6 +24,7 @@ $isOwner = $currentRole === 'owner';
                 <a href="dashboard.php" class="btn btn-outline-info btn-sm">Dashboard</a>
                 <a href="manage-products.php" class="btn btn-outline-success btn-sm">Manage Products</a>
                 <a href="business-settings.php" class="btn btn-outline-primary btn-sm">Business Info</a>
+                <a href="payment-settings.php" class="btn btn-outline-secondary btn-sm">Payment Settings</a>
                 <a href="users.php" class="btn btn-outline-warning btn-sm">Manage Staff</a>
                 <?php endif; ?>
                 <a href="../products.html" class="btn btn-outline-dark btn-sm">View Storefront</a>
@@ -95,12 +96,13 @@ $isOwner = $currentRole === 'owner';
                                 <th>Items</th>
                                 <th>Total</th>
                                 <th>Status</th>
+                                <th>Payment</th>
                                 <th>Time</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody id="salesRows">
-                            <tr><td colspan="7" class="text-muted">No sales loaded.</td></tr>
+                            <tr><td colspan="8" class="text-muted">No sales loaded.</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -206,7 +208,7 @@ $isOwner = $currentRole === 'owner';
 
             const rows = document.getElementById('salesRows');
             if (!data.sales.length) {
-                rows.innerHTML = '<tr><td colspan="7" class="text-muted">No sales found for this date.</td></tr>';
+                rows.innerHTML = '<tr><td colspan="8" class="text-muted">No sales found for this date.</td></tr>';
                 return;
             }
 
@@ -217,6 +219,7 @@ $isOwner = $currentRole === 'owner';
                     <td>${sale.item_count}</td>
                     <td>${asMoney(sale.total)}</td>
                     <td><span class="badge ${sale.status === 'paid' ? 'bg-success' : 'bg-secondary'}">${sale.status}</span></td>
+                    <td><span class="badge ${sale.payment_status === 'paid' ? 'bg-success' : 'bg-warning text-dark'}">${(sale.payment_method || 'cod')} / ${(sale.payment_status || 'unpaid')}</span></td>
                     <td>${sale.created_at}</td>
                     <td>
                         <div class="d-flex flex-wrap gap-1">
@@ -253,6 +256,8 @@ $isOwner = $currentRole === 'owner';
                 <p><strong>Order #:</strong> ${data.order.id}</p>
                 <p><strong>Customer:</strong> ${data.order.customer_name}</p>
                 <p><strong>Status:</strong> ${data.order.status}</p>
+                <p><strong>Payment:</strong> ${data.order.payment_method || 'cod'} / ${data.order.payment_status || 'unpaid'}</p>
+                <p><strong>Reference:</strong> ${data.order.payment_reference || '-'}</p>
                 <p><strong>Created:</strong> ${data.order.created_at}</p>
                 <table class="table table-sm">
                     <thead>

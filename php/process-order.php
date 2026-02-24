@@ -2,11 +2,14 @@
 session_start();
 header('Content-Type: application/json');
 include 'db-connection.php';
+include 'payment-schema.php';
 
 try {
     if ($_SERVER['REQUEST_METHOD'] != 'POST') {
         throw new Exception('Invalid request method');
     }
+
+    ensure_payment_schema($conn);
     
     $customer_name = isset($_POST['customer_name']) ? trim($_POST['customer_name']) : '';
     $customer_email = isset($_POST['customer_email']) ? trim($_POST['customer_email']) : '';
@@ -15,7 +18,13 @@ try {
     $city = isset($_POST['city']) ? trim($_POST['city']) : '';
     $postal_code = isset($_POST['postal_code']) ? trim($_POST['postal_code']) : '';
     $notes = isset($_POST['notes']) ? trim($_POST['notes']) : '';
+    $payment_method = isset($_POST['payment_method']) ? trim($_POST['payment_method']) : 'cod';
     $cart_data = isset($_POST['cart_data']) ? $_POST['cart_data'] : '[]';
+
+    $allowed_payment_methods = ['cod', 'cash_on_delivery', 'pay_on_delivery'];
+    if (!in_array($payment_method, $allowed_payment_methods, true)) {
+        $payment_method = 'cod';
+    }
     
     // Validate
     if (empty($customer_name) || empty($customer_email) || empty($customer_phone)) {
@@ -91,8 +100,8 @@ try {
         $final_total = round($subtotal + $tax + $shipping, 2);
 
         // Insert order
-        $sql = "INSERT INTO orders (customer_name, customer_email, customer_phone, address, city, postal_code, subtotal, tax, shipping, total, notes, status, created_at) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())";
+        $sql = "INSERT INTO orders (customer_name, customer_email, customer_phone, address, city, postal_code, subtotal, tax, shipping, total, notes, status, payment_method, payment_status, payment_reference, created_at) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, 'unpaid', NULL, NOW())";
         
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
@@ -100,7 +109,7 @@ try {
         }
         
         $stmt->bind_param(
-            'ssssssdddds',
+            'ssssssddddss',
             $customer_name,
             $customer_email,
             $customer_phone,
@@ -111,7 +120,8 @@ try {
             $tax,
             $shipping,
             $final_total,
-            $notes
+            $notes,
+            $payment_method
         );
         
         if (!$stmt->execute()) {
