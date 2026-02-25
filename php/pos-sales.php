@@ -4,6 +4,7 @@ include 'admin-auth.php';
 require_roles_api(['owner', 'sales']);
 include 'db-connection.php';
 include 'payment-schema.php';
+include 'staff-tracking-schema.php';
 
 function respond($success, $message = '', $extra = []) {
     echo json_encode(array_merge([
@@ -15,6 +16,7 @@ function respond($success, $message = '', $extra = []) {
 
 try {
     ensure_payment_schema($conn);
+    ensure_staff_tracking_schema($conn);
 
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     $rawBody = file_get_contents('php://input');
@@ -130,7 +132,7 @@ try {
     $orderId = isset($_GET['order_id']) ? intval($_GET['order_id']) : 0;
 
     if ($orderId > 0) {
-        $orderStmt = $conn->prepare("SELECT id, customer_name, subtotal, tax, shipping, total, status, payment_method, payment_status, payment_reference, notes, created_at
+        $orderStmt = $conn->prepare("SELECT id, customer_name, subtotal, tax, shipping, total, status, payment_method, payment_status, payment_reference, staff_user_id, staff_username, notes, created_at
                                      FROM orders
                                      WHERE id = ?");
         $orderStmt->bind_param('i', $orderId);
@@ -162,6 +164,13 @@ try {
     }
 
     $date = isset($_GET['date']) ? trim($_GET['date']) : date('Y-m-d');
+    $dateObj = DateTime::createFromFormat('Y-m-d', $date);
+    if (!$dateObj) {
+        $dateObj = new DateTime('today');
+        $date = $dateObj->format('Y-m-d');
+    }
+    $rangeStart = $dateObj->format('Y-m-d') . ' 00:00:00';
+    $rangeEnd = (clone $dateObj)->modify('+1 day')->format('Y-m-d') . ' 00:00:00';
     $limit = isset($_GET['limit']) ? intval($_GET['limit']) : 100;
     if ($limit <= 0) {
         $limit = 100;
@@ -170,15 +179,15 @@ try {
         $limit = 500;
     }
 
-        $stmt = $conn->prepare("SELECT o.id, o.customer_name, o.total, o.status, o.payment_method, o.payment_status, o.payment_reference, o.created_at,
-                                       COUNT(oi.id) AS item_count
-                                FROM orders o
-                                LEFT JOIN order_items oi ON oi.order_id = o.id
-                                WHERE DATE(o.created_at) = ?
-                                GROUP BY o.id, o.customer_name, o.total, o.status, o.payment_method, o.payment_status, o.payment_reference, o.created_at
-                                ORDER BY o.id ASC
-                                LIMIT ?");
-    $stmt->bind_param('si', $date, $limit);
+    $stmt = $conn->prepare("SELECT o.id, o.customer_name, o.total, o.status, o.payment_method, o.payment_status, o.payment_reference, o.staff_user_id, o.staff_username, o.created_at,
+                                   COUNT(oi.id) AS item_count
+                            FROM orders o
+                            LEFT JOIN order_items oi ON oi.order_id = o.id
+                            WHERE o.created_at >= ? AND o.created_at < ?
+                            GROUP BY o.id, o.customer_name, o.total, o.status, o.payment_method, o.payment_status, o.payment_reference, o.staff_user_id, o.staff_username, o.created_at
+                            ORDER BY o.id DESC
+                            LIMIT ?");
+    $stmt->bind_param('ssi', $rangeStart, $rangeEnd, $limit);
     $stmt->execute();
     $result = $stmt->get_result();
 
@@ -190,8 +199,8 @@ try {
 
     $sumStmt = $conn->prepare("SELECT COUNT(*) AS orders_count, COALESCE(SUM(total), 0) AS gross_total
                                FROM orders
-                               WHERE DATE(created_at) = ?");
-    $sumStmt->bind_param('s', $date);
+                               WHERE created_at >= ? AND created_at < ?");
+    $sumStmt->bind_param('ss', $rangeStart, $rangeEnd);
     $sumStmt->execute();
     $summaryResult = $sumStmt->get_result();
     $summary = $summaryResult->fetch_assoc();

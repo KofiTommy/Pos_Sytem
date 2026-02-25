@@ -96,13 +96,14 @@ $isOwner = $currentRole === 'owner';
                                 <th>Items</th>
                                 <th>Total</th>
                                 <th>Status</th>
+                                <th>Staff</th>
                                 <th>Payment</th>
                                 <th>Time</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody id="salesRows">
-                            <tr><td colspan="8" class="text-muted">No sales loaded.</td></tr>
+                            <tr><td colspan="9" class="text-muted">No sales loaded.</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -208,7 +209,7 @@ $isOwner = $currentRole === 'owner';
 
             const rows = document.getElementById('salesRows');
             if (!data.sales.length) {
-                rows.innerHTML = '<tr><td colspan="8" class="text-muted">No sales found for this date.</td></tr>';
+                rows.innerHTML = '<tr><td colspan="9" class="text-muted">No sales found for this date.</td></tr>';
                 return;
             }
 
@@ -219,6 +220,7 @@ $isOwner = $currentRole === 'owner';
                     <td>${sale.item_count}</td>
                     <td>${asMoney(sale.total)}</td>
                     <td><span class="badge ${sale.status === 'paid' ? 'bg-success' : 'bg-secondary'}">${sale.status}</span></td>
+                    <td><span class="badge bg-info text-dark">${sale.staff_username || 'Unassigned'}</span></td>
                     <td><span class="badge ${sale.payment_status === 'paid' ? 'bg-success' : 'bg-warning text-dark'}">${(sale.payment_method || 'cod')} / ${(sale.payment_status || 'unpaid')}</span></td>
                     <td>${sale.created_at}</td>
                     <td>
@@ -256,6 +258,7 @@ $isOwner = $currentRole === 'owner';
                 <p><strong>Order #:</strong> ${data.order.id}</p>
                 <p><strong>Customer:</strong> ${data.order.customer_name}</p>
                 <p><strong>Status:</strong> ${data.order.status}</p>
+                <p><strong>Staff:</strong> ${data.order.staff_username || 'Unassigned'}${data.order.staff_user_id ? ' (#' + data.order.staff_user_id + ')' : ''}</p>
                 <p><strong>Payment:</strong> ${data.order.payment_method || 'cod'} / ${data.order.payment_status || 'unpaid'}</p>
                 <p><strong>Reference:</strong> ${data.order.payment_reference || '-'}</p>
                 <p><strong>Created:</strong> ${data.order.created_at}</p>

@@ -176,7 +176,7 @@ try {
          FROM orders o
          LEFT JOIN order_items oi ON oi.order_id = o.id
          GROUP BY o.id, o.customer_name, o.total, o.status, o.created_at
-         ORDER BY o.id ASC
+         ORDER BY o.id DESC
          LIMIT 12"
     );
     $recentStmt->execute();

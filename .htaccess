@@ -1,0 +1,32 @@
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/plain text/css application/javascript application/json text/javascript image/svg+xml application/xml text/xml
+</IfModule>
+
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/css "access plus 30 days"
+    ExpiresByType application/javascript "access plus 30 days"
+    ExpiresByType text/javascript "access plus 30 days"
+    ExpiresByType image/jpeg "access plus 180 days"
+    ExpiresByType image/jpg "access plus 180 days"
+    ExpiresByType image/png "access plus 180 days"
+    ExpiresByType image/webp "access plus 180 days"
+    ExpiresByType image/svg+xml "access plus 180 days"
+    ExpiresByType image/x-icon "access plus 180 days"
+    ExpiresByType font/woff2 "access plus 180 days"
+    ExpiresByType font/woff "access plus 180 days"
+    ExpiresByType application/font-woff2 "access plus 180 days"
+    ExpiresByType application/font-woff "access plus 180 days"
+    ExpiresByType text/html "access plus 0 seconds"
+</IfModule>
+
+<IfModule mod_headers.c>
+    <FilesMatch "\.(css|js|png|jpg|jpeg|webp|svg|ico|woff|woff2)$">
+        Header set Cache-Control "public, max-age=2592000, immutable"
+    </FilesMatch>
+
+    <FilesMatch "\.(php|html)$">
+        Header set Cache-Control "no-cache, no-store, must-revalidate"
+    </FilesMatch>
+</IfModule>
+

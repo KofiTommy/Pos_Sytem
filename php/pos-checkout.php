@@ -4,9 +4,11 @@ include 'admin-auth.php';
 require_roles_api(['owner', 'sales']);
 include 'db-connection.php';
 include 'payment-schema.php';
+include 'staff-tracking-schema.php';
 
 try {
     ensure_payment_schema($conn);
+    ensure_staff_tracking_schema($conn);
 
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         throw new Exception('Invalid request method');
@@ -31,6 +33,8 @@ try {
     $taxRate = isset($payload['tax_rate']) ? floatval($payload['tax_rate']) : 10;
     $discountAmount = isset($payload['discount_amount']) ? floatval($payload['discount_amount']) : 0;
     $items = isset($payload['items']) && is_array($payload['items']) ? $payload['items'] : [];
+    $staffUserId = intval($_SESSION['user_id'] ?? 0);
+    $staffUsername = trim((string)($_SESSION['username'] ?? ''));
 
     if (count($items) === 0) {
         throw new Exception('No items in sale');
@@ -40,6 +44,9 @@ try {
     }
     if ($discountAmount < 0) {
         throw new Exception('Discount must be 0 or greater');
+    }
+    if ($staffUserId <= 0 || $staffUsername === '') {
+        throw new Exception('Invalid staff session. Please sign in again.');
     }
 
     $conn->begin_transaction();
@@ -102,14 +109,14 @@ try {
         $paymentStatus = 'paid';
         $paymentRef = null;
         $orderStmt = $conn->prepare("INSERT INTO orders
-            (customer_name, customer_email, customer_phone, address, city, postal_code, subtotal, tax, shipping, total, notes, status, payment_method, payment_status, payment_reference, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'paid', ?, ?, ?, NOW())");
+            (customer_name, customer_email, customer_phone, address, city, postal_code, subtotal, tax, shipping, total, notes, status, payment_method, payment_status, payment_reference, staff_user_id, staff_username, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'paid', ?, ?, ?, ?, ?, NOW())");
 
         $address = 'In-store POS';
         $city = 'N/A';
         $postalCode = 'N/A';
         $orderStmt->bind_param(
-            'ssssssddddssss',
+            'ssssssddddssssis',
             $customerName,
             $customerEmail,
             $customerPhone,
@@ -123,7 +130,9 @@ try {
             $fullNotes,
             $paymentMethod,
             $paymentStatus,
-            $paymentRef
+            $paymentRef,
+            $staffUserId,
+            $staffUsername
         );
         $orderStmt->execute();
         $orderId = $conn->insert_id;
