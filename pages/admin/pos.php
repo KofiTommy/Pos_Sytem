@@ -105,11 +105,11 @@ $isOwner = $currentRole === 'owner';
 
                         <div id="cartItems" class="mb-3 small"></div>
                         <hr>
-                        <div class="d-flex justify-content-between"><span>Subtotal</span><strong id="subtotal">GHS 0.00</strong></div>
-                        <div class="d-flex justify-content-between"><span>Discount</span><strong id="discount">GHS 0.00</strong></div>
-                        <div class="d-flex justify-content-between"><span id="taxLabel">Tax (10%)</span><strong id="tax">GHS 0.00</strong></div>
-                        <div class="d-flex justify-content-between mb-2"><span>Total</span><strong id="total">GHS 0.00</strong></div>
-                        <div class="d-flex justify-content-between mb-3"><span>Change</span><strong id="changeDue">GHS 0.00</strong></div>
+                        <div class="d-flex justify-content-between"><span>Subtotal</span><strong id="subtotal">GBP 0.00</strong></div>
+                        <div class="d-flex justify-content-between"><span>Discount</span><strong id="discount">GBP 0.00</strong></div>
+                        <div class="d-flex justify-content-between"><span id="taxLabel">Tax (10%)</span><strong id="tax">GBP 0.00</strong></div>
+                        <div class="d-flex justify-content-between mb-2"><span>Total</span><strong id="total">GBP 0.00</strong></div>
+                        <div class="d-flex justify-content-between mb-3"><span>Change</span><strong id="changeDue">GBP 0.00</strong></div>
                         <button id="checkoutBtn" class="btn btn-success w-100 mb-2">
                             <i class="fas fa-check-circle"></i> Complete Sale
                         </button>
@@ -137,7 +137,7 @@ $isOwner = $currentRole === 'owner';
         };
 
         function asMoney(value) {
-            return 'GHS ' + Number(value || 0).toFixed(2);
+            return 'GBP ' + Number(value || 0).toFixed(2);
         }
 
         function asPercent(value) {

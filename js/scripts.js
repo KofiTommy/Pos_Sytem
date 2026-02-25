@@ -218,7 +218,7 @@ function loadFeaturedProducts() {
                                     <h5 class="card-title">${productName}</h5>
                                     <p class="card-text text-muted">${productDescription}...</p>
                                     <div class="d-flex justify-content-between align-items-center">
-                                        <span class="product-price">GHS ${productPrice.toFixed(2)}</span>
+                                        <span class="product-price">GBP ${productPrice.toFixed(2)}</span>
                                         <span class="badge bg-success">${productStock} in stock</span>
                                     </div>
                                     <button type="button" class="btn btn-primary btn-sm w-100 mt-3" data-product-id="${productId}" data-product-name="${productNameAttr}" data-product-price="${productPrice}" data-product-image="${productImageAttr}" onclick="event.stopPropagation(); addToCartFromElement(this)">
@@ -261,7 +261,7 @@ function isValidPhone(phone) {
 
 // Format currency
 function formatCurrency(amount) {
-    return 'GHS ' + parseFloat(amount).toFixed(2);
+    return 'GBP ' + parseFloat(amount).toFixed(2);
 }
 
 

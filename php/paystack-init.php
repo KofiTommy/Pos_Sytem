@@ -125,7 +125,7 @@ try {
         $gatewayPayload = [
             'email' => $customerEmail,
             'amount' => intval(round($total * 100)),
-            'currency' => 'GHS',
+            'currency' => 'GBP',
             'reference' => $reference,
             'callback_url' => paystack_callback_url(),
             'channels' => ['mobile_money'],
