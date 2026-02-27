@@ -216,7 +216,7 @@ $currentRole = current_user_role();
         }
 
         function asMoney(value) {
-            return 'GBP ' + Number(value || 0).toFixed(2);
+            return 'GHS ' + Number(value || 0).toFixed(2);
         }
 
         async function loadProducts() {
@@ -402,6 +402,7 @@ $currentRole = current_user_role();
     </script>
 </body>
 </html>
+
 
 
 

@@ -79,7 +79,7 @@ $isOwner = $currentRole === 'owner';
                 <div class="card border-0 shadow-sm">
                     <div class="card-body">
                         <p class="text-muted mb-1">Gross Sales</p>
-                        <h3 id="grossSales" class="mb-0">GBP 0.00</h3>
+                        <h3 id="grossSales" class="mb-0">GHS 0.00</h3>
                     </div>
                 </div>
             </div>
@@ -176,7 +176,7 @@ $isOwner = $currentRole === 'owner';
         };
 
         function asMoney(value) {
-            return 'GBP ' + Number(value || 0).toFixed(2);
+            return 'GHS ' + Number(value || 0).toFixed(2);
         }
 
         function escapeHtml(value) {
@@ -506,6 +506,7 @@ $isOwner = $currentRole === 'owner';
     </script>
 </body>
 </html>
+
 
 
 

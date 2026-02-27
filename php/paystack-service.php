@@ -350,7 +350,7 @@ function finalize_paystack_intent(mysqli $conn, string $reference, array $verifi
         }
 
         $gatewayCurrency = strtoupper((string)($verifiedData['currency'] ?? ''));
-        if ($gatewayCurrency !== 'GBP') {
+        if ($gatewayCurrency !== 'GHS') {
             throw new Exception('Unexpected payment currency from gateway.');
         }
 
@@ -473,3 +473,4 @@ function finalize_paystack_intent(mysqli $conn, string $reference, array $verifi
         throw $e;
     }
 }
+

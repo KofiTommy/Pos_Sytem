@@ -205,7 +205,7 @@ $currentRole = current_user_role();
                 <div class="card kpi-card">
                     <div class="card-body">
                         <p class="kpi-label">Gross Sales</p>
-                        <h2 class="kpi-value" id="kpiGrossSales">GBP 0.00</h2>
+                        <h2 class="kpi-value" id="kpiGrossSales">GHS 0.00</h2>
                         <small class="text-muted">Selected range</small>
                     </div>
                 </div>
@@ -223,7 +223,7 @@ $currentRole = current_user_role();
                 <div class="card kpi-card">
                     <div class="card-body">
                         <p class="kpi-label">Average Order Value</p>
-                        <h2 class="kpi-value" id="kpiAov">GBP 0.00</h2>
+                        <h2 class="kpi-value" id="kpiAov">GHS 0.00</h2>
                         <small class="text-muted">Selected range</small>
                     </div>
                 </div>
@@ -232,7 +232,7 @@ $currentRole = current_user_role();
                 <div class="card kpi-card">
                     <div class="card-body">
                         <p class="kpi-label">Sales Today</p>
-                        <h2 class="kpi-value" id="kpiSalesToday">GBP 0.00</h2>
+                        <h2 class="kpi-value" id="kpiSalesToday">GHS 0.00</h2>
                         <small id="kpiOrdersToday" class="text-muted">0 orders today</small>
                     </div>
                 </div>
@@ -463,7 +463,7 @@ $currentRole = current_user_role();
 
         function formatMoney(value) {
             const amount = Number(value || 0);
-            return 'GBP ' + amount.toFixed(2);
+            return 'GHS ' + amount.toFixed(2);
         }
 
         function esc(value) {
@@ -538,7 +538,7 @@ $currentRole = current_user_role();
                     scales: {
                         y: {
                             ticks: {
-                                callback: (v) => 'GBP ' + Number(v).toFixed(0)
+                                callback: (v) => 'GHS ' + Number(v).toFixed(0)
                             }
                         }
                     }
@@ -830,6 +830,7 @@ $currentRole = current_user_role();
     </script>
 </body>
 </html>
+
 
 
 

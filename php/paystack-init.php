@@ -137,7 +137,7 @@ try {
         $gatewayPayload = [
             'email' => $customerEmail,
             'amount' => intval(round($total * 100)),
-            'currency' => 'GBP',
+            'currency' => 'GHS',
             'reference' => $reference,
             'callback_url' => paystack_callback_url((string)($business['business_code'] ?? '')),
             'channels' => ['mobile_money'],
@@ -190,3 +190,4 @@ try {
         $conn->close();
     }
 }
+
