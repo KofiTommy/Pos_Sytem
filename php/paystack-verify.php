@@ -2,6 +2,7 @@
 header('Content-Type: application/json');
 include 'db-connection.php';
 include 'payment-schema.php';
+include 'tenant-context.php';
 include 'paystack-service.php';
 
 function respond($success, $message = '', $extra = []) {
@@ -15,10 +16,6 @@ function respond($success, $message = '', $extra = []) {
 try {
     if (!in_array(($_SERVER['REQUEST_METHOD'] ?? ''), ['POST', 'GET'], true)) {
         throw new Exception('Invalid request method');
-    }
-
-    if (!paystack_is_configured($conn)) {
-        throw new Exception('Mobile Money is not configured on this server.');
     }
 
     ensure_payment_schema($conn);
@@ -39,8 +36,33 @@ try {
         throw new Exception('Missing payment reference.');
     }
 
-    $intentStmt = $conn->prepare("SELECT id, status, order_id FROM payment_intents WHERE reference = ?");
-    $intentStmt->bind_param('s', $reference);
+    $businessCode = '';
+    if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+        $businessCode = trim((string)($body['business_code'] ?? ''));
+    }
+    if ($businessCode === '') {
+        $businessCode = trim((string)($_GET['business_code'] ?? ($_GET['tenant'] ?? '')));
+    }
+    $business = tenant_require_business_context(
+        $conn,
+        ['business_code' => $businessCode],
+        true
+    );
+    $businessId = intval($business['id'] ?? 0);
+    if ($businessId <= 0) {
+        throw new Exception('Business account not found.');
+    }
+
+    if (!paystack_is_configured($conn, $businessId)) {
+        throw new Exception('Mobile Money is not configured on this server.');
+    }
+
+    $intentStmt = $conn->prepare(
+        "SELECT id, status, order_id
+         FROM payment_intents
+         WHERE reference = ? AND business_id = ?"
+    );
+    $intentStmt->bind_param('si', $reference, $businessId);
     $intentStmt->execute();
     $intent = $intentStmt->get_result()->fetch_assoc();
     $intentStmt->close();
@@ -57,14 +79,14 @@ try {
         ]);
     }
 
-    $verifyResponse = paystack_verify_transaction($reference, $conn);
+    $verifyResponse = paystack_verify_transaction($reference, $conn, $businessId);
     $verifyData = is_array($verifyResponse['data'] ?? null) ? $verifyResponse['data'] : [];
     $gatewayStatus = strtolower((string)($verifyData['status'] ?? ''));
     if ($gatewayStatus !== 'success') {
         $failedStatus = 'failed';
         $respJson = json_encode($verifyResponse);
-        $updateStmt = $conn->prepare("UPDATE payment_intents SET status = ?, gateway_response = ? WHERE reference = ?");
-        $updateStmt->bind_param('sss', $failedStatus, $respJson, $reference);
+        $updateStmt = $conn->prepare("UPDATE payment_intents SET status = ?, gateway_response = ? WHERE reference = ? AND business_id = ?");
+        $updateStmt->bind_param('sssi', $failedStatus, $respJson, $reference, $businessId);
         $updateStmt->execute();
         $updateStmt->close();
         throw new Exception('Payment has not been completed yet.');

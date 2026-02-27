@@ -26,6 +26,7 @@ register_shutdown_function(function () {
 
 try {
     include 'db-connection.php';
+    include 'tenant-context.php';
 
     if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
         throw new Exception('Invalid request method');
@@ -33,17 +34,33 @@ try {
 
     $username = isset($_POST['username']) ? trim((string)$_POST['username']) : '';
     $password = isset($_POST['password']) ? (string)$_POST['password'] : '';
+    $businessCode = isset($_POST['business_code']) ? trim((string)$_POST['business_code']) : '';
 
     if ($username === '' || $password === '') {
         throw new Exception('Username and password are required');
     }
 
-    $stmt = $conn->prepare("SELECT id, username, password, email, role FROM users WHERE username = ?");
+    $business = tenant_require_business_context(
+        $conn,
+        ['business_code' => $businessCode],
+        $businessCode === ''
+    );
+    $businessId = intval($business['id'] ?? 0);
+    if ($businessId <= 0) {
+        throw new Exception('Invalid business context');
+    }
+
+    $stmt = $conn->prepare(
+        "SELECT id, username, password, email, role
+         FROM users
+         WHERE business_id = ? AND (username = ? OR email = ?)
+         LIMIT 1"
+    );
     if (!$stmt) {
         throw new Exception('Database error: ' . $conn->error);
     }
 
-    $stmt->bind_param('s', $username);
+    $stmt->bind_param('iss', $businessId, $username, $username);
     $stmt->execute();
 
     $user = null;
@@ -88,9 +105,10 @@ try {
     $_SESSION['email'] = $user['email'];
     $_SESSION['role'] = $role;
     $_SESSION['is_admin'] = true;
+    tenant_set_session_context($business);
 
     if (isset($_POST['remember'])) {
-        setcookie('username', $username, [
+        setcookie('username', (string)$user['username'], [
             'expires' => time() + (30 * 24 * 60 * 60),
             'path' => '/',
             'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
@@ -103,6 +121,8 @@ try {
         'success' => true,
         'message' => 'Login successful',
         'role' => $role,
+        'business_code' => (string)($business['business_code'] ?? ''),
+        'business_name' => (string)($business['business_name'] ?? ''),
         'redirect' => $role === 'owner' ? '../pages/admin/dashboard.php' : '../pages/admin/pos.php'
     ]);
 } catch (Exception $e) {

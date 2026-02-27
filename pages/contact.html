@@ -168,7 +168,8 @@
 
             try {
                 const formData = new FormData(form);
-                const response = await fetch('../php/contact.php', {
+                appendTenantToFormData(formData);
+                const response = await fetch(withTenantQuery('../php/contact.php'), {
                     method: 'POST',
                     body: formData
                 });

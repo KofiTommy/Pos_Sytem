@@ -5,10 +5,16 @@ require_roles_api(['owner', 'sales']);
 include 'db-connection.php';
 include 'payment-schema.php';
 include 'staff-tracking-schema.php';
+include 'tenant-context.php';
 
 try {
     ensure_payment_schema($conn);
     ensure_staff_tracking_schema($conn);
+    ensure_multitenant_schema($conn);
+    $businessId = current_business_id();
+    if ($businessId <= 0) {
+        throw new Exception('Invalid business context. Please sign in again.');
+    }
 
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         throw new Exception('Invalid request method');
@@ -54,7 +60,12 @@ try {
         $subtotal = 0.0;
         $validatedItems = [];
 
-        $productStmt = $conn->prepare("SELECT id, name, price, stock FROM products WHERE id = ? FOR UPDATE");
+        $productStmt = $conn->prepare(
+            "SELECT id, name, price, stock
+             FROM products
+             WHERE id = ? AND business_id = ?
+             FOR UPDATE"
+        );
         foreach ($items as $item) {
             $productId = isset($item['id']) ? intval($item['id']) : 0;
             $quantity = isset($item['quantity']) ? intval($item['quantity']) : 0;
@@ -63,7 +74,7 @@ try {
                 throw new Exception('Invalid cart item');
             }
 
-            $productStmt->bind_param('i', $productId);
+            $productStmt->bind_param('ii', $productId, $businessId);
             $productStmt->execute();
             $productResult = $productStmt->get_result();
             $product = $productResult->fetch_assoc();
@@ -109,14 +120,15 @@ try {
         $paymentStatus = 'paid';
         $paymentRef = null;
         $orderStmt = $conn->prepare("INSERT INTO orders
-            (customer_name, customer_email, customer_phone, address, city, postal_code, subtotal, tax, shipping, total, notes, status, payment_method, payment_status, payment_reference, staff_user_id, staff_username, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'paid', ?, ?, ?, ?, ?, NOW())");
+            (business_id, customer_name, customer_email, customer_phone, address, city, postal_code, subtotal, tax, shipping, total, notes, status, payment_method, payment_status, payment_reference, staff_user_id, staff_username, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'paid', ?, ?, ?, ?, ?, NOW())");
 
         $address = 'In-store POS';
         $city = 'N/A';
         $postalCode = 'N/A';
         $orderStmt->bind_param(
-            'ssssssddddssssis',
+            'issssssddddssssis',
+            $businessId,
             $customerName,
             $customerEmail,
             $customerPhone,
@@ -138,14 +150,14 @@ try {
         $orderId = $conn->insert_id;
         $orderStmt->close();
 
-        $itemStmt = $conn->prepare("INSERT INTO order_items (order_id, product_id, product_name, quantity, price) VALUES (?, ?, ?, ?, ?)");
-        $stockStmt = $conn->prepare("UPDATE products SET stock = stock - ? WHERE id = ?");
+        $itemStmt = $conn->prepare("INSERT INTO order_items (order_id, business_id, product_id, product_name, quantity, price) VALUES (?, ?, ?, ?, ?, ?)");
+        $stockStmt = $conn->prepare("UPDATE products SET stock = stock - ? WHERE id = ? AND business_id = ?");
 
         foreach ($validatedItems as $item) {
-            $itemStmt->bind_param('iisid', $orderId, $item['id'], $item['name'], $item['quantity'], $item['price']);
+            $itemStmt->bind_param('iiisid', $orderId, $businessId, $item['id'], $item['name'], $item['quantity'], $item['price']);
             $itemStmt->execute();
 
-            $stockStmt->bind_param('ii', $item['quantity'], $item['id']);
+            $stockStmt->bind_param('iii', $item['quantity'], $item['id'], $businessId);
             $stockStmt->execute();
         }
 

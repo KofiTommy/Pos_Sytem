@@ -7,8 +7,11 @@ if ($role === 'admin') {
 }
 
 echo json_encode([
-    'authenticated' => isset($_SESSION['user_id']) && in_array($role, ['owner', 'sales'], true),
+    'authenticated' => isset($_SESSION['user_id']) && intval($_SESSION['business_id'] ?? 0) > 0 && in_array($role, ['owner', 'sales'], true),
     'username' => $_SESSION['username'] ?? null,
-    'role' => $role
+    'role' => $role,
+    'business_id' => intval($_SESSION['business_id'] ?? 0),
+    'business_code' => $_SESSION['business_code'] ?? null,
+    'business_name' => $_SESSION['business_name'] ?? null
 ]);
 ?>

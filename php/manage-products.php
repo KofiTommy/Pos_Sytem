@@ -3,6 +3,7 @@ header('Content-Type: application/json');
 include 'admin-auth.php';
 require_roles_api(['owner']);
 include 'db-connection.php';
+include 'tenant-context.php';
 
 function respond($success, $message = '', $extra = []) {
     echo json_encode(array_merge([
@@ -73,6 +74,12 @@ function handle_uploaded_image($fieldName) {
 }
 
 try {
+    ensure_multitenant_schema($conn);
+    $businessId = current_business_id();
+    if ($businessId <= 0) {
+        respond(false, 'Invalid business context. Please sign in again.');
+    }
+
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     if ($method === 'POST' && isset($_POST['_method'])) {
         $override = strtoupper(trim($_POST['_method']));
@@ -93,10 +100,11 @@ try {
         $stmt = $conn->prepare(
             "SELECT id, name, description, price, category, image, stock, featured, created_at
              FROM products
+             WHERE business_id = ?
              ORDER BY created_at ASC, id ASC
              LIMIT ?"
         );
-        $stmt->bind_param('i', $limit);
+        $stmt->bind_param('ii', $businessId, $limit);
         $stmt->execute();
         $result = $stmt->get_result();
 
@@ -150,10 +158,10 @@ try {
         }
 
         $stmt = $conn->prepare(
-            "INSERT INTO products (name, description, price, category, image, stock, featured)
-             VALUES (?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO products (business_id, name, description, price, category, image, stock, featured)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
         );
-        $stmt->bind_param('ssdssii', $name, $description, $price, $category, $image, $stock, $featured);
+        $stmt->bind_param('issdssii', $businessId, $name, $description, $price, $category, $image, $stock, $featured);
         $stmt->execute();
 
         $newId = $conn->insert_id;
@@ -209,16 +217,16 @@ try {
         $stmt = $conn->prepare(
             "UPDATE products
              SET name = ?, description = ?, price = ?, category = ?, image = ?, stock = ?, featured = ?
-             WHERE id = ?"
+             WHERE id = ? AND business_id = ?"
         );
-        $stmt->bind_param('ssdssiii', $name, $description, $price, $category, $image, $stock, $featured, $id);
+        $stmt->bind_param('ssdssiiii', $name, $description, $price, $category, $image, $stock, $featured, $id, $businessId);
         $stmt->execute();
         $affected = $stmt->affected_rows;
         $stmt->close();
 
         if ($affected === 0) {
-            $checkStmt = $conn->prepare("SELECT id FROM products WHERE id = ?");
-            $checkStmt->bind_param('i', $id);
+            $checkStmt = $conn->prepare("SELECT id FROM products WHERE id = ? AND business_id = ?");
+            $checkStmt->bind_param('ii', $id, $businessId);
             $checkStmt->execute();
             $exists = $checkStmt->get_result()->fetch_assoc();
             $checkStmt->close();
@@ -245,8 +253,8 @@ try {
             respond(false, 'Invalid product ID');
         }
 
-        $stmt = $conn->prepare("DELETE FROM products WHERE id = ?");
-        $stmt->bind_param('i', $id);
+        $stmt = $conn->prepare("DELETE FROM products WHERE id = ? AND business_id = ?");
+        $stmt->bind_param('ii', $id, $businessId);
         $stmt->execute();
         $affected = $stmt->affected_rows;
         $stmt->close();

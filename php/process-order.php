@@ -3,6 +3,7 @@ session_start();
 header('Content-Type: application/json');
 include 'db-connection.php';
 include 'payment-schema.php';
+include 'tenant-context.php';
 
 try {
     if ($_SERVER['REQUEST_METHOD'] != 'POST') {
@@ -10,6 +11,15 @@ try {
     }
 
     ensure_payment_schema($conn);
+    $business = tenant_require_business_context(
+        $conn,
+        ['business_code' => $_POST['business_code'] ?? ''],
+        true
+    );
+    $businessId = intval($business['id'] ?? 0);
+    if ($businessId <= 0) {
+        throw new Exception('Invalid business context');
+    }
     
     $customer_name = isset($_POST['customer_name']) ? trim($_POST['customer_name']) : '';
     $customer_email = isset($_POST['customer_email']) ? trim($_POST['customer_email']) : '';
@@ -56,7 +66,12 @@ try {
     
     try {
         // Validate product IDs and prices against DB to prevent tampering and overselling.
-        $productStmt = $conn->prepare("SELECT id, name, price, stock FROM products WHERE id = ? FOR UPDATE");
+        $productStmt = $conn->prepare(
+            "SELECT id, name, price, stock
+             FROM products
+             WHERE id = ? AND business_id = ?
+             FOR UPDATE"
+        );
         if (!$productStmt) {
             throw new Exception('Database error: ' . $conn->error);
         }
@@ -71,7 +86,7 @@ try {
                 throw new Exception('Invalid cart item');
             }
 
-            $productStmt->bind_param('i', $product_id);
+            $productStmt->bind_param('ii', $product_id, $businessId);
             $productStmt->execute();
             $product = $productStmt->get_result()->fetch_assoc();
 
@@ -100,8 +115,8 @@ try {
         $final_total = round($subtotal + $tax + $shipping, 2);
 
         // Insert order
-        $sql = "INSERT INTO orders (customer_name, customer_email, customer_phone, address, city, postal_code, subtotal, tax, shipping, total, notes, status, payment_method, payment_status, payment_reference, created_at) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, 'unpaid', NULL, NOW())";
+        $sql = "INSERT INTO orders (business_id, customer_name, customer_email, customer_phone, address, city, postal_code, subtotal, tax, shipping, total, notes, status, payment_method, payment_status, payment_reference, created_at) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, 'unpaid', NULL, NOW())";
         
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
@@ -109,7 +124,8 @@ try {
         }
         
         $stmt->bind_param(
-            'ssssssddddss',
+            'issssssddddss',
+            $businessId,
             $customer_name,
             $customer_email,
             $customer_phone,
@@ -132,25 +148,25 @@ try {
         
         // Insert order items
         $stmt->close();
-        $sql = "INSERT INTO order_items (order_id, product_id, product_name, quantity, price) VALUES (?, ?, ?, ?, ?)";
+        $sql = "INSERT INTO order_items (order_id, business_id, product_id, product_name, quantity, price) VALUES (?, ?, ?, ?, ?, ?)";
         $stmt = $conn->prepare($sql);
         
         if (!$stmt) {
             throw new Exception('Database error: ' . $conn->error);
         }
         
-        $stockStmt = $conn->prepare("UPDATE products SET stock = stock - ? WHERE id = ?");
+        $stockStmt = $conn->prepare("UPDATE products SET stock = stock - ? WHERE id = ? AND business_id = ?");
         if (!$stockStmt) {
             throw new Exception('Database error: ' . $conn->error);
         }
 
         foreach ($validatedItems as $item) {
-            $stmt->bind_param('iisid', $order_id, $item['id'], $item['name'], $item['quantity'], $item['price']);
+            $stmt->bind_param('iiisid', $order_id, $businessId, $item['id'], $item['name'], $item['quantity'], $item['price']);
             if (!$stmt->execute()) {
                 throw new Exception('Failed to add order item: ' . $stmt->error);
             }
 
-            $stockStmt->bind_param('ii', $item['quantity'], $item['id']);
+            $stockStmt->bind_param('iii', $item['quantity'], $item['id'], $businessId);
             if (!$stockStmt->execute()) {
                 throw new Exception('Failed to update inventory');
             }

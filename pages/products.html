@@ -184,7 +184,7 @@
         function loadProducts() {
             const container = document.getElementById('productsContainer');
 
-            fetch('../php/get-products.php?limit=24')
+            fetch(withTenantQuery('../php/get-products.php?limit=24'))
                 .then(response => response.json())
                 .then(data => {
                     container.innerHTML = '';

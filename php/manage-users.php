@@ -3,6 +3,7 @@ header('Content-Type: application/json');
 include 'admin-auth.php';
 require_roles_api(['owner']);
 include 'db-connection.php';
+include 'tenant-context.php';
 
 function respond($success, $message = '', $extra = []) {
     echo json_encode(array_merge([
@@ -24,6 +25,12 @@ function validate_password_strength($password) {
 }
 
 try {
+    ensure_multitenant_schema($conn);
+    $businessId = current_business_id();
+    if ($businessId <= 0) {
+        respond(false, 'Invalid business context. Please sign in again.');
+    }
+
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     $rawBody = file_get_contents('php://input');
     $body = json_decode($rawBody, true);
@@ -32,7 +39,13 @@ try {
     }
 
     if ($method === 'GET') {
-        $stmt = $conn->prepare("SELECT id, username, email, role, created_at FROM users ORDER BY created_at DESC");
+        $stmt = $conn->prepare(
+            "SELECT id, username, email, role, created_at
+             FROM users
+             WHERE business_id = ?
+             ORDER BY created_at DESC"
+        );
+        $stmt->bind_param('i', $businessId);
         $stmt->execute();
         $result = $stmt->get_result();
         $users = [];
@@ -66,8 +79,13 @@ try {
             respond(false, 'Owner can only create sales accounts here');
         }
 
-        $checkStmt = $conn->prepare("SELECT id FROM users WHERE username = ? OR email = ? LIMIT 1");
-        $checkStmt->bind_param('ss', $username, $email);
+        $checkStmt = $conn->prepare(
+            "SELECT id
+             FROM users
+             WHERE business_id = ? AND (username = ? OR email = ?)
+             LIMIT 1"
+        );
+        $checkStmt->bind_param('iss', $businessId, $username, $email);
         $checkStmt->execute();
         $exists = $checkStmt->get_result()->fetch_assoc();
         $checkStmt->close();
@@ -76,8 +94,11 @@ try {
         }
 
         $passwordHash = password_hash($password, PASSWORD_DEFAULT);
-        $stmt = $conn->prepare("INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, 'sales')");
-        $stmt->bind_param('sss', $username, $email, $passwordHash);
+        $stmt = $conn->prepare(
+            "INSERT INTO users (business_id, username, email, password, role)
+             VALUES (?, ?, ?, ?, 'sales')"
+        );
+        $stmt->bind_param('isss', $businessId, $username, $email, $passwordHash);
         $stmt->execute();
         $newId = $conn->insert_id;
         $stmt->close();
@@ -103,8 +124,13 @@ try {
                 respond(false, 'New password must be at least 10 chars and include uppercase, lowercase, number, and symbol');
             }
 
-            $ownerStmt = $conn->prepare("SELECT id, password, role FROM users WHERE id = ? LIMIT 1");
-            $ownerStmt->bind_param('i', $ownerId);
+            $ownerStmt = $conn->prepare(
+                "SELECT id, password, role
+                 FROM users
+                 WHERE id = ? AND business_id = ?
+                 LIMIT 1"
+            );
+            $ownerStmt->bind_param('ii', $ownerId, $businessId);
             $ownerStmt->execute();
             $owner = $ownerStmt->get_result()->fetch_assoc();
             $ownerStmt->close();
@@ -124,8 +150,8 @@ try {
             }
 
             $newHash = password_hash($newPassword, PASSWORD_DEFAULT);
-            $updateStmt = $conn->prepare("UPDATE users SET password = ? WHERE id = ?");
-            $updateStmt->bind_param('si', $newHash, $ownerId);
+            $updateStmt = $conn->prepare("UPDATE users SET password = ? WHERE id = ? AND business_id = ?");
+            $updateStmt->bind_param('sii', $newHash, $ownerId, $businessId);
             $updateStmt->execute();
             $updateStmt->close();
 
@@ -143,8 +169,13 @@ try {
                 respond(false, 'New password must be at least 10 chars and include uppercase, lowercase, number, and symbol');
             }
 
-            $userStmt = $conn->prepare("SELECT id, role FROM users WHERE id = ? LIMIT 1");
-            $userStmt->bind_param('i', $userId);
+            $userStmt = $conn->prepare(
+                "SELECT id, role
+                 FROM users
+                 WHERE id = ? AND business_id = ?
+                 LIMIT 1"
+            );
+            $userStmt->bind_param('ii', $userId, $businessId);
             $userStmt->execute();
             $target = $userStmt->get_result()->fetch_assoc();
             $userStmt->close();
@@ -157,8 +188,8 @@ try {
             }
 
             $newHash = password_hash($newPassword, PASSWORD_DEFAULT);
-            $resetStmt = $conn->prepare("UPDATE users SET password = ? WHERE id = ?");
-            $resetStmt->bind_param('si', $newHash, $userId);
+            $resetStmt = $conn->prepare("UPDATE users SET password = ? WHERE id = ? AND business_id = ?");
+            $resetStmt->bind_param('sii', $newHash, $userId, $businessId);
             $resetStmt->execute();
             $resetStmt->close();
 
@@ -178,8 +209,13 @@ try {
             respond(false, 'You cannot delete your own owner account');
         }
 
-        $roleStmt = $conn->prepare("SELECT role FROM users WHERE id = ? LIMIT 1");
-        $roleStmt->bind_param('i', $userId);
+        $roleStmt = $conn->prepare(
+            "SELECT role
+             FROM users
+             WHERE id = ? AND business_id = ?
+             LIMIT 1"
+        );
+        $roleStmt->bind_param('ii', $userId, $businessId);
         $roleStmt->execute();
         $user = $roleStmt->get_result()->fetch_assoc();
         $roleStmt->close();
@@ -191,8 +227,8 @@ try {
             respond(false, 'Only sales accounts can be deleted from this page');
         }
 
-        $stmt = $conn->prepare("DELETE FROM users WHERE id = ?");
-        $stmt->bind_param('i', $userId);
+        $stmt = $conn->prepare("DELETE FROM users WHERE id = ? AND business_id = ?");
+        $stmt->bind_param('ii', $userId, $businessId);
         $stmt->execute();
         $deleted = $stmt->affected_rows;
         $stmt->close();

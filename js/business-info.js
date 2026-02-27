@@ -1,10 +1,45 @@
 (function () {
+    const TENANT_STORAGE_KEY = 'tenant_code';
     const DEFAULT_INFO = {
         business_name: 'Mother Care',
         business_email: 'info@mothercare.com',
         contact_number: '+233 000 000 000',
         logo_filename: ''
     };
+
+    function sanitizeTenantCode(value) {
+        return String(value || '')
+            .toLowerCase()
+            .trim()
+            .replace(/[^a-z0-9-]/g, '')
+            .substring(0, 64);
+    }
+
+    function detectTenantCode() {
+        try {
+            const params = new URLSearchParams(window.location.search || '');
+            const fromUrl = sanitizeTenantCode(params.get('tenant') || params.get('business_code') || '');
+            if (fromUrl) {
+                localStorage.setItem(TENANT_STORAGE_KEY, fromUrl);
+                return fromUrl;
+            }
+        } catch (error) {
+            // Ignore parsing/storage errors.
+        }
+
+        try {
+            return sanitizeTenantCode(localStorage.getItem(TENANT_STORAGE_KEY) || '');
+        } catch (error) {
+            return '';
+        }
+    }
+
+    function withTenant(url) {
+        const tenantCode = detectTenantCode();
+        if (!tenantCode) return url;
+        if (/[?&](tenant|business_code)=/i.test(url)) return url;
+        return `${url}${url.includes('?') ? '&' : '?'}tenant=${encodeURIComponent(tenantCode)}`;
+    }
 
     function resolveApiUrl() {
         const path = window.location.pathname.toLowerCase();
@@ -84,7 +119,7 @@
 
     async function loadBusinessInfo() {
         try {
-            const response = await fetch(resolveApiUrl(), { cache: 'no-store' });
+            const response = await fetch(withTenant(resolveApiUrl()), { cache: 'no-store' });
             const data = await response.json();
             if (data && data.success && data.settings) {
                 applyBusinessInfo(data.settings);

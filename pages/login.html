@@ -101,6 +101,12 @@
                 </div>
 
                 <div class="mb-3">
+                    <label for="business_code" class="form-label">Business Code</label>
+                    <input type="text" class="form-control" id="business_code" name="business_code" maxlength="64" pattern="[a-zA-Z0-9-]{2,64}" placeholder="e.g. mother-care">
+                    <div class="form-text">Use the business code assigned to your store.</div>
+                </div>
+
+                <div class="mb-3">
                     <label for="password" class="form-label">Password</label>
                     <input type="password" class="form-control" id="password" name="password" required>
                 </div>
@@ -134,6 +140,7 @@
             e.preventDefault();
 
             const username = document.getElementById('username').value;
+            const businessCode = document.getElementById('business_code').value.trim().toLowerCase();
             const password = document.getElementById('password').value;
             const remember = document.getElementById('remember').checked;
 
@@ -147,6 +154,7 @@
             const formData = new FormData();
             formData.append('username', username);
             formData.append('password', password);
+            if (businessCode) formData.append('business_code', businessCode);
             if (remember) formData.append('remember', '1');
 
             fetch('../php/login.php', {
@@ -187,6 +195,21 @@
 
         // If already logged in, redirect based on role.
         document.addEventListener('DOMContentLoaded', async function () {
+            const sanitizeTenantCode = (value) => String(value || '')
+                .toLowerCase()
+                .trim()
+                .replace(/[^a-z0-9-]/g, '')
+                .substring(0, 64);
+
+            const params = new URLSearchParams(window.location.search || '');
+            const fromUrl = sanitizeTenantCode(params.get('tenant') || params.get('business_code') || '');
+            const fromStorage = sanitizeTenantCode(localStorage.getItem('tenant_code') || '');
+            const activeTenant = fromUrl || fromStorage;
+            if (activeTenant) {
+                document.getElementById('business_code').value = activeTenant;
+                localStorage.setItem('tenant_code', activeTenant);
+            }
+
             try {
                 const response = await fetch('../php/session-status.php');
                 const data = await response.json();

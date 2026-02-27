@@ -3,6 +3,7 @@ header('Content-Type: application/json');
 include 'admin-auth.php';
 require_roles_api(['owner']);
 include 'db-connection.php';
+include 'tenant-context.php';
 
 function respond($success, $message = '', $extra = []) {
     echo json_encode(array_merge([
@@ -13,6 +14,12 @@ function respond($success, $message = '', $extra = []) {
 }
 
 try {
+    ensure_multitenant_schema($conn);
+    $businessId = current_business_id();
+    if ($businessId <= 0) {
+        respond(false, 'Invalid business context. Please sign in again.');
+    }
+
     $tableCheck = $conn->query("SHOW TABLES LIKE 'contact_messages'");
     if (!$tableCheck || $tableCheck->num_rows === 0) {
         respond(false, 'Contact messages table is not configured. Please run setup.');
@@ -30,8 +37,8 @@ try {
         if ($id > 0) {
             $stmt = $conn->prepare("SELECT id, name, email, phone, subject, message, admin_reply, status, created_at, updated_at
                                     FROM contact_messages
-                                    WHERE id = ?");
-            $stmt->bind_param('i', $id);
+                                    WHERE id = ? AND business_id = ?");
+            $stmt->bind_param('ii', $id, $businessId);
             $stmt->execute();
             $message = $stmt->get_result()->fetch_assoc();
             $stmt->close();
@@ -55,16 +62,17 @@ try {
         if ($status !== '') {
             $stmt = $conn->prepare("SELECT id, name, email, phone, subject, status, created_at, updated_at
                                     FROM contact_messages
-                                    WHERE status = ?
+                                    WHERE business_id = ? AND status = ?
                                     ORDER BY created_at DESC
                                     LIMIT ?");
-            $stmt->bind_param('si', $status, $limit);
+            $stmt->bind_param('isi', $businessId, $status, $limit);
         } else {
             $stmt = $conn->prepare("SELECT id, name, email, phone, subject, status, created_at, updated_at
                                     FROM contact_messages
+                                    WHERE business_id = ?
                                     ORDER BY created_at DESC
                                     LIMIT ?");
-            $stmt->bind_param('i', $limit);
+            $stmt->bind_param('ii', $businessId, $limit);
         }
         $stmt->execute();
         $result = $stmt->get_result();
@@ -74,14 +82,18 @@ try {
         }
         $stmt->close();
 
-        $countStmt = $conn->query("SELECT status, COUNT(*) AS total FROM contact_messages GROUP BY status");
+        $countStmt = $conn->prepare("SELECT status, COUNT(*) AS total FROM contact_messages WHERE business_id = ? GROUP BY status");
+        $countStmt->bind_param('i', $businessId);
+        $countStmt->execute();
+        $countResult = $countStmt->get_result();
         $counts = ['new' => 0, 'read' => 0, 'replied' => 0, 'closed' => 0];
-        while ($row = $countStmt->fetch_assoc()) {
+        while ($row = $countResult->fetch_assoc()) {
             $key = strtolower($row['status']);
             if (isset($counts[$key])) {
                 $counts[$key] = intval($row['total']);
             }
         }
+        $countStmt->close();
 
         respond(true, '', [
             'messages' => $messages,
@@ -103,8 +115,8 @@ try {
             respond(false, 'Invalid status value');
         }
 
-        $currentStmt = $conn->prepare("SELECT id, status, admin_reply FROM contact_messages WHERE id = ?");
-        $currentStmt->bind_param('i', $id);
+        $currentStmt = $conn->prepare("SELECT id, status, admin_reply FROM contact_messages WHERE id = ? AND business_id = ?");
+        $currentStmt->bind_param('ii', $id, $businessId);
         $currentStmt->execute();
         $current = $currentStmt->get_result()->fetch_assoc();
         $currentStmt->close();
@@ -115,8 +127,8 @@ try {
         $nextStatus = $status !== '' ? $status : $current['status'];
         $nextReply = $adminReply !== null ? $adminReply : $current['admin_reply'];
 
-        $stmt = $conn->prepare("UPDATE contact_messages SET status = ?, admin_reply = ? WHERE id = ?");
-        $stmt->bind_param('ssi', $nextStatus, $nextReply, $id);
+        $stmt = $conn->prepare("UPDATE contact_messages SET status = ?, admin_reply = ? WHERE id = ? AND business_id = ?");
+        $stmt->bind_param('ssii', $nextStatus, $nextReply, $id, $businessId);
         $stmt->execute();
         $stmt->close();
 
@@ -132,8 +144,8 @@ try {
             respond(false, 'Invalid message ID');
         }
 
-        $stmt = $conn->prepare("DELETE FROM contact_messages WHERE id = ?");
-        $stmt->bind_param('i', $id);
+        $stmt = $conn->prepare("DELETE FROM contact_messages WHERE id = ? AND business_id = ?");
+        $stmt->bind_param('ii', $id, $businessId);
         $stmt->execute();
         $affected = $stmt->affected_rows;
         $stmt->close();

@@ -1,4 +1,4 @@
-# Mother Care - POS System with E-Commerce
+# Mother Care - POS System with E-Commerce (Multi-Tenant Ready)
 
 A complete POS system with a public-facing e-commerce store for a mother care business.
 
@@ -68,11 +68,41 @@ $database = 'possystem_db';
 1. Start Apache and MySQL from XAMPP Control Panel
 2. Open your browser and go to: `http://localhost/possystem/`
 
-### Step 4: Admin Login
+### Step 4: Apply Multi-Tenant Migration (Recommended)
+
+Run:
+
+```sql
+sql/multi_tenant_saas_migration.sql
+```
+
+This adds the `businesses` table and `business_id` isolation across users, products, sales, checkout, and payment data.
+
+### Step 5: Admin Login
 
 - **URL**: <http://localhost/possystem/pages/login.html>
 - **Username**: admin
 - **Password**: admin123
+- **Business Code**: `mother-care` (or leave empty for the default tenant)
+
+### Optional: Create New Business (Owner Signup API)
+
+`POST /php/register-business.php`
+
+Example JSON body:
+
+```json
+{
+  "business_name": "Acme Retail",
+  "business_email": "owner@acme.test",
+  "contact_number": "+1 555 0100",
+  "business_code": "acme-retail",
+  "owner_username": "acmeowner",
+  "owner_email": "owner@acme.test",
+  "owner_password": "StrongPass!2026",
+  "subscription_plan": "starter"
+}
+```
 
 ## 🔧 Features Implemented
 

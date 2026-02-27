@@ -3,6 +3,7 @@ header('Content-Type: application/json');
 
 include 'admin-auth.php';
 include 'db-connection.php';
+include 'tenant-context.php';
 include 'paystack-service.php';
 
 function respond($success, $message = '', $extra = []) {
@@ -53,10 +54,10 @@ function test_paystack_key(string $secret): array {
     return $parsed;
 }
 
-function load_settings_payload(mysqli $conn): array {
-    $settings = load_paystack_settings($conn);
-    $secret = paystack_secret_key($conn);
-    $public = paystack_public_key($conn);
+function load_settings_payload(mysqli $conn, int $businessId): array {
+    $settings = load_paystack_settings($conn, $businessId);
+    $secret = paystack_secret_key($conn, $businessId);
+    $public = paystack_public_key($conn, $businessId);
 
     return [
         'enabled' => intval($settings['enabled'] ?? 0) === 1,
@@ -71,11 +72,16 @@ function load_settings_payload(mysqli $conn): array {
 
 try {
     require_roles_api(['owner']);
-    ensure_payment_gateway_settings_table($conn);
+    ensure_multitenant_schema($conn);
+    $businessId = current_business_id();
+    if ($businessId <= 0) {
+        throw new Exception('Invalid business context. Please sign in again.');
+    }
+    ensure_payment_gateway_settings_table($conn, $businessId);
 
     $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
     if ($method === 'GET') {
-        respond(true, '', ['settings' => load_settings_payload($conn)]);
+        respond(true, '', ['settings' => load_settings_payload($conn, $businessId)]);
     }
 
     if ($method === 'POST') {
@@ -88,7 +94,7 @@ try {
 
         if ($action === 'test') {
             $testSecret = trim((string)($body['secret_key'] ?? ''));
-            $effectiveSecret = $testSecret !== '' ? $testSecret : paystack_secret_key($conn);
+            $effectiveSecret = $testSecret !== '' ? $testSecret : paystack_secret_key($conn, $businessId);
             if ($effectiveSecret === '') {
                 throw new Exception('No Paystack secret key configured for test.');
             }
@@ -96,7 +102,7 @@ try {
 
             respond(true, 'Connection to Paystack succeeded.', [
                 'gateway_message' => $response['message'] ?? 'ok',
-                'settings' => load_settings_payload($conn)
+                'settings' => load_settings_payload($conn, $businessId)
             ]);
         }
 
@@ -124,21 +130,21 @@ try {
             $stmt = $conn->prepare(
                 "UPDATE payment_gateway_settings
                  SET enabled = ?, use_sandbox = ?, public_key = ?, secret_key_ciphertext = ?, secret_key_iv = ?
-                 WHERE id = 1"
+                 WHERE business_id = ?"
             );
-            $stmt->bind_param('iisss', $enabled, $useSandbox, $publicKey, $ciphertext, $iv);
+            $stmt->bind_param('iisssi', $enabled, $useSandbox, $publicKey, $ciphertext, $iv, $businessId);
         } else {
             $stmt = $conn->prepare(
                 "UPDATE payment_gateway_settings
                  SET enabled = ?, use_sandbox = ?, public_key = ?
-                 WHERE id = 1"
+                 WHERE business_id = ?"
             );
-            $stmt->bind_param('iis', $enabled, $useSandbox, $publicKey);
+            $stmt->bind_param('iisi', $enabled, $useSandbox, $publicKey, $businessId);
         }
         $stmt->execute();
         $stmt->close();
 
-        respond(true, 'Payment settings saved.', ['settings' => load_settings_payload($conn)]);
+        respond(true, 'Payment settings saved.', ['settings' => load_settings_payload($conn, $businessId)]);
     }
 
     respond(false, 'Method not allowed.');

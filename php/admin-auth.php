@@ -15,8 +15,17 @@ function current_user_role() {
     return in_array($role, ['owner', 'sales'], true) ? $role : '';
 }
 
+function current_business_id() {
+    return intval($_SESSION['business_id'] ?? 0);
+}
+
+function current_business_code() {
+    $code = $_SESSION['business_code'] ?? '';
+    return is_string($code) ? trim($code) : '';
+}
+
 function is_admin_authenticated() {
-    return isset($_SESSION['user_id']) && current_user_role() !== '';
+    return isset($_SESSION['user_id']) && current_user_role() !== '' && current_business_id() > 0;
 }
 
 function require_admin_page($redirect_url = '../pages/login.html') {

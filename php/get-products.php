@@ -1,7 +1,8 @@
 <?php
 header('Content-Type: application/json');
-header('Cache-Control: public, max-age=60');
+header('Cache-Control: private, max-age=60');
 include 'db-connection.php';
+include 'tenant-context.php';
 
 function safe_text($value, $maxLen = 1000) {
     $text = trim(strip_tags((string)$value));
@@ -16,6 +17,12 @@ function safe_image_name($value) {
 }
 
 try {
+    $business = tenant_require_business_context($conn, [], true);
+    $businessId = intval($business['id'] ?? 0);
+    if ($businessId <= 0) {
+        throw new Exception('Invalid business context');
+    }
+
     $limit = isset($_GET['limit']) ? intval($_GET['limit']) : 24;
     $featured = isset($_GET['featured']) ? 1 : 0;
     if ($limit <= 0) {
@@ -28,18 +35,19 @@ try {
     if ($featured) {
         $sql = "SELECT id, name, description, price, category, image, stock, featured, created_at
                 FROM products
-                WHERE featured = 1
+                WHERE business_id = ? AND featured = 1
                 ORDER BY created_at DESC
                 LIMIT ?";
         $stmt = $conn->prepare($sql);
-        $stmt->bind_param('i', $limit);
+        $stmt->bind_param('ii', $businessId, $limit);
     } else {
         $sql = "SELECT id, name, description, price, category, image, stock, featured, created_at
                 FROM products
+                WHERE business_id = ?
                 ORDER BY created_at DESC
                 LIMIT ?";
         $stmt = $conn->prepare($sql);
-        $stmt->bind_param('i', $limit);
+        $stmt->bind_param('ii', $businessId, $limit);
     }
 
     $stmt->execute();

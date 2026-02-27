@@ -61,12 +61,21 @@ USE possystem_db;
    - ✓ All tables created
    - ✓ Sample products loaded
 
-### Step 4: Test Login
+### Step 4: Enable Multi-Tenant Mode (Recommended)
+
+Run this SQL file once:
+
+```sql
+sql/multi_tenant_saas_migration.sql
+```
+
+### Step 5: Test Login
 
 1. Go to: `http://localhost/possystem/pages/login.html`
 2. Login with:
    - **Username**: `admin`
    - **Password**: `admin123`
+   - **Business Code**: `mother-care` (or leave empty for default tenant)
 3. ✓ Success!
 
 ---

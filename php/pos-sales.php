@@ -5,6 +5,7 @@ require_roles_api(['owner', 'sales']);
 include 'db-connection.php';
 include 'payment-schema.php';
 include 'staff-tracking-schema.php';
+include 'tenant-context.php';
 
 function respond($success, $message = '', $extra = []) {
     echo json_encode(array_merge([
@@ -17,6 +18,11 @@ function respond($success, $message = '', $extra = []) {
 try {
     ensure_payment_schema($conn);
     ensure_staff_tracking_schema($conn);
+    ensure_multitenant_schema($conn);
+    $businessId = current_business_id();
+    if ($businessId <= 0) {
+        throw new Exception('Invalid business context. Please sign in again.');
+    }
 
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     $rawBody = file_get_contents('php://input');
@@ -46,15 +52,15 @@ try {
             respond(false, 'Invalid status');
         }
 
-        $stmt = $conn->prepare("UPDATE orders SET customer_name = ?, status = ?, notes = ? WHERE id = ?");
-        $stmt->bind_param('sssi', $customerName, $status, $notes, $orderId);
+        $stmt = $conn->prepare("UPDATE orders SET customer_name = ?, status = ?, notes = ? WHERE id = ? AND business_id = ?");
+        $stmt->bind_param('sssii', $customerName, $status, $notes, $orderId, $businessId);
         $stmt->execute();
         $affected = $stmt->affected_rows;
         $stmt->close();
 
         if ($affected === 0) {
-            $checkStmt = $conn->prepare("SELECT id FROM orders WHERE id = ?");
-            $checkStmt->bind_param('i', $orderId);
+            $checkStmt = $conn->prepare("SELECT id FROM orders WHERE id = ? AND business_id = ?");
+            $checkStmt->bind_param('ii', $orderId, $businessId);
             $checkStmt->execute();
             $exists = $checkStmt->get_result()->fetch_assoc();
             $checkStmt->close();
@@ -81,8 +87,8 @@ try {
 
         $conn->begin_transaction();
         try {
-            $existsStmt = $conn->prepare("SELECT id FROM orders WHERE id = ? FOR UPDATE");
-            $existsStmt->bind_param('i', $orderId);
+            $existsStmt = $conn->prepare("SELECT id FROM orders WHERE id = ? AND business_id = ? FOR UPDATE");
+            $existsStmt->bind_param('ii', $orderId, $businessId);
             $existsStmt->execute();
             $exists = $existsStmt->get_result()->fetch_assoc();
             $existsStmt->close();
@@ -90,8 +96,8 @@ try {
                 throw new Exception('Sale not found');
             }
 
-            $itemsStmt = $conn->prepare("SELECT product_id, quantity FROM order_items WHERE order_id = ?");
-            $itemsStmt->bind_param('i', $orderId);
+            $itemsStmt = $conn->prepare("SELECT product_id, quantity FROM order_items WHERE order_id = ? AND business_id = ?");
+            $itemsStmt->bind_param('ii', $orderId, $businessId);
             $itemsStmt->execute();
             $itemsResult = $itemsStmt->get_result();
             $items = [];
@@ -100,19 +106,19 @@ try {
             }
             $itemsStmt->close();
 
-            $restoreStmt = $conn->prepare("UPDATE products SET stock = stock + ? WHERE id = ?");
+            $restoreStmt = $conn->prepare("UPDATE products SET stock = stock + ? WHERE id = ? AND business_id = ?");
             foreach ($items as $item) {
                 $productId = intval($item['product_id'] ?? 0);
                 $quantity = intval($item['quantity'] ?? 0);
                 if ($productId > 0 && $quantity > 0) {
-                    $restoreStmt->bind_param('ii', $quantity, $productId);
+                    $restoreStmt->bind_param('iii', $quantity, $productId, $businessId);
                     $restoreStmt->execute();
                 }
             }
             $restoreStmt->close();
 
-            $deleteStmt = $conn->prepare("DELETE FROM orders WHERE id = ?");
-            $deleteStmt->bind_param('i', $orderId);
+            $deleteStmt = $conn->prepare("DELETE FROM orders WHERE id = ? AND business_id = ?");
+            $deleteStmt->bind_param('ii', $orderId, $businessId);
             $deleteStmt->execute();
             $deleted = $deleteStmt->affected_rows;
             $deleteStmt->close();
@@ -134,8 +140,8 @@ try {
     if ($orderId > 0) {
         $orderStmt = $conn->prepare("SELECT id, customer_name, subtotal, tax, shipping, total, status, payment_method, payment_status, payment_reference, staff_user_id, staff_username, notes, created_at
                                      FROM orders
-                                     WHERE id = ?");
-        $orderStmt->bind_param('i', $orderId);
+                                     WHERE id = ? AND business_id = ?");
+        $orderStmt->bind_param('ii', $orderId, $businessId);
         $orderStmt->execute();
         $orderResult = $orderStmt->get_result();
         $order = $orderResult->fetch_assoc();
@@ -147,8 +153,8 @@ try {
 
         $itemStmt = $conn->prepare("SELECT product_id, product_name, quantity, price
                                     FROM order_items
-                                    WHERE order_id = ?");
-        $itemStmt->bind_param('i', $orderId);
+                                    WHERE order_id = ? AND business_id = ?");
+        $itemStmt->bind_param('ii', $orderId, $businessId);
         $itemStmt->execute();
         $itemResult = $itemStmt->get_result();
         $items = [];
@@ -182,12 +188,12 @@ try {
     $stmt = $conn->prepare("SELECT o.id, o.customer_name, o.total, o.status, o.payment_method, o.payment_status, o.payment_reference, o.staff_user_id, o.staff_username, o.created_at,
                                    COUNT(oi.id) AS item_count
                             FROM orders o
-                            LEFT JOIN order_items oi ON oi.order_id = o.id
-                            WHERE o.created_at >= ? AND o.created_at < ?
+                            LEFT JOIN order_items oi ON oi.order_id = o.id AND oi.business_id = o.business_id
+                            WHERE o.business_id = ? AND o.created_at >= ? AND o.created_at < ?
                             GROUP BY o.id, o.customer_name, o.total, o.status, o.payment_method, o.payment_status, o.payment_reference, o.staff_user_id, o.staff_username, o.created_at
                             ORDER BY o.id DESC
                             LIMIT ?");
-    $stmt->bind_param('ssi', $rangeStart, $rangeEnd, $limit);
+    $stmt->bind_param('issi', $businessId, $rangeStart, $rangeEnd, $limit);
     $stmt->execute();
     $result = $stmt->get_result();
 
@@ -199,8 +205,8 @@ try {
 
     $sumStmt = $conn->prepare("SELECT COUNT(*) AS orders_count, COALESCE(SUM(total), 0) AS gross_total
                                FROM orders
-                               WHERE created_at >= ? AND created_at < ?");
-    $sumStmt->bind_param('ss', $rangeStart, $rangeEnd);
+                               WHERE business_id = ? AND created_at >= ? AND created_at < ?");
+    $sumStmt->bind_param('iss', $businessId, $rangeStart, $rangeEnd);
     $sumStmt->execute();
     $summaryResult = $sumStmt->get_result();
     $summary = $summaryResult->fetch_assoc();

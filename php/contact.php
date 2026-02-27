@@ -1,6 +1,7 @@
 <?php
 header('Content-Type: application/json');
 include 'db-connection.php';
+include 'tenant-context.php';
 
 function respond($success, $message = '') {
     echo json_encode([
@@ -11,6 +12,12 @@ function respond($success, $message = '') {
 }
 
 try {
+    $business = tenant_require_business_context($conn, [], true);
+    $businessId = intval($business['id'] ?? 0);
+    if ($businessId <= 0) {
+        throw new Exception('Invalid business context');
+    }
+
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         throw new Exception('Invalid request method');
     }
@@ -40,10 +47,10 @@ try {
     }
 
     $stmt = $conn->prepare(
-        "INSERT INTO contact_messages (name, email, phone, subject, message, status)
-         VALUES (?, ?, ?, ?, ?, 'new')"
+        "INSERT INTO contact_messages (business_id, name, email, phone, subject, message, status)
+         VALUES (?, ?, ?, ?, ?, ?, 'new')"
     );
-    $stmt->bind_param('sssss', $name, $email, $phone, $subject, $message);
+    $stmt->bind_param('isssss', $businessId, $name, $email, $phone, $subject, $message);
     $stmt->execute();
     $stmt->close();
 

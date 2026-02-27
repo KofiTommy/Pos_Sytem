@@ -327,10 +327,10 @@
             if (paymentType !== 'paystack' || !reference) return;
 
             try {
-                const response = await fetch('../php/paystack-verify.php', {
+                const response = await fetch(withTenantQuery('../php/paystack-verify.php'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ reference: reference })
+                    body: JSON.stringify(withTenantPayload({ reference: reference }))
                 });
                 const data = await response.json();
                 if (!data.success) {
@@ -365,10 +365,10 @@
             const paymentMethod = formData.get('payment_method');
 
             if (paymentMethod === 'mobile_money') {
-                fetch('../php/paystack-init.php', {
+                fetch(withTenantQuery('../php/paystack-init.php'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
+                    body: JSON.stringify(withTenantPayload({
                         customer_name: formData.get('customer_name'),
                         customer_email: formData.get('customer_email'),
                         customer_phone: formData.get('customer_phone'),
@@ -377,7 +377,7 @@
                         postal_code: formData.get('postal_code'),
                         notes: formData.get('notes'),
                         cart_data: JSON.stringify(cart)
-                    })
+                    }))
                 })
                     .then(response => response.json())
                     .then(data => {
@@ -396,7 +396,8 @@
                 return;
             }
 
-            fetch('../php/process-order.php', {
+            appendTenantToFormData(formData);
+            fetch(withTenantQuery('../php/process-order.php'), {
                 method: 'POST',
                 body: formData
             })
@@ -413,7 +414,7 @@
                         checkoutModal.hide();
 
                         setTimeout(() => {
-                            window.location.href = '../index.html';
+                            window.location.href = withTenantQuery('../index.html');
                         }, 2000);
                     } else {
                         showError(data.message || 'Error processing order.');

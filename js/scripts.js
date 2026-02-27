@@ -15,6 +15,85 @@ try {
     }
 }
 
+const TENANT_STORAGE_KEY = 'tenant_code';
+
+function sanitizeTenantCode(value) {
+    return String(value || '')
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9-]/g, '')
+        .substring(0, 64);
+}
+
+function detectTenantCode() {
+    try {
+        const params = new URLSearchParams(window.location.search || '');
+        const fromUrl = sanitizeTenantCode(params.get('tenant') || params.get('business_code') || '');
+        if (fromUrl) {
+            localStorage.setItem(TENANT_STORAGE_KEY, fromUrl);
+            return fromUrl;
+        }
+    } catch (error) {
+        // Ignore URL parsing/storage issues.
+    }
+
+    try {
+        return sanitizeTenantCode(localStorage.getItem(TENANT_STORAGE_KEY) || '');
+    } catch (error) {
+        return '';
+    }
+}
+
+const activeTenantCode = detectTenantCode();
+
+function withTenantQuery(url) {
+    if (!activeTenantCode) return url;
+    if (/[?&](tenant|business_code)=/i.test(url)) return url;
+    const hashIndex = url.indexOf('#');
+    const base = hashIndex >= 0 ? url.substring(0, hashIndex) : url;
+    const hash = hashIndex >= 0 ? url.substring(hashIndex) : '';
+    return `${base}${base.includes('?') ? '&' : '?'}tenant=${encodeURIComponent(activeTenantCode)}${hash}`;
+}
+
+function appendTenantToFormData(formData) {
+    if (!activeTenantCode || !formData || typeof formData.append !== 'function') return formData;
+    if (!formData.has('business_code')) {
+        formData.append('business_code', activeTenantCode);
+    }
+    return formData;
+}
+
+function withTenantPayload(payload) {
+    const next = (payload && typeof payload === 'object') ? payload : {};
+    if (activeTenantCode && !next.business_code) {
+        next.business_code = activeTenantCode;
+    }
+    return next;
+}
+
+function propagateTenantToLinks() {
+    if (!activeTenantCode) return;
+    const links = document.querySelectorAll('a[href]');
+    links.forEach((link) => {
+        const href = String(link.getAttribute('href') || '');
+        if (!href || href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('tel:') || href.startsWith('javascript:')) {
+            return;
+        }
+        if (/^https?:\/\//i.test(href) && !href.includes(window.location.host)) {
+            return;
+        }
+        if (/[?&](tenant|business_code)=/i.test(href)) {
+            return;
+        }
+        link.setAttribute('href', withTenantQuery(href));
+    });
+}
+
+window.withTenantQuery = withTenantQuery;
+window.appendTenantToFormData = appendTenantToFormData;
+window.withTenantPayload = withTenantPayload;
+window.activeTenantCode = activeTenantCode;
+
 function escapeHtml(value) {
     return String(value ?? '')
         .replace(/&/g, '&amp;')
@@ -90,9 +169,10 @@ async function updateAdminPortalLink() {
                 ? '<i class="fas fa-gauge-high"></i> Owner Dashboard'
                 : '<i class="fas fa-cash-register"></i> Sales POS';
         } else {
-            link.href = link.getAttribute('href').includes('pages/')
+            const loginUrl = link.getAttribute('href').includes('pages/')
                 ? 'pages/login.html'
                 : 'login.html';
+            link.href = withTenantQuery(loginUrl);
             link.innerHTML = '<i class="fas fa-sign-in-alt"></i> Staff Login';
         }
     });
@@ -193,7 +273,7 @@ function loadFeaturedProducts() {
     const featuredProductsDiv = document.getElementById('featuredProducts');
     if (!featuredProductsDiv) return;
 
-    fetch('php/get-products.php?limit=3&featured=1')
+    fetch(withTenantQuery('php/get-products.php?limit=3&featured=1'))
         .then((response) => response.json())
         .then((data) => {
             featuredProductsDiv.innerHTML = '';
@@ -242,6 +322,7 @@ function loadFeaturedProducts() {
 
 // Initialize cart count on page load
 document.addEventListener('DOMContentLoaded', function () {
+    propagateTenantToLinks();
     updateCartCount();
     loadFeaturedProducts();
     updateAdminPortalLink();

@@ -44,44 +44,140 @@ function decrypt_payment_secret(string $ciphertextB64, string $ivB64): string {
     return $decrypted;
 }
 
-function ensure_payment_gateway_settings_table(mysqli $conn): void {
+function resolve_paystack_business_id(mysqli $conn, int $businessId = 0): int {
+    if ($businessId > 0) {
+        return $businessId;
+    }
+    if (function_exists('tenant_session_business_id')) {
+        $sessionBusinessId = tenant_session_business_id();
+        if ($sessionBusinessId > 0) {
+            return $sessionBusinessId;
+        }
+    }
+
+    try {
+        if ($result = $conn->query("SELECT id FROM businesses WHERE status = 'active' ORDER BY id ASC LIMIT 1")) {
+            $row = $result->fetch_assoc();
+            if ($row) {
+                return intval($row['id'] ?? 0);
+            }
+        }
+        if ($result = $conn->query("SELECT id FROM businesses ORDER BY id ASC LIMIT 1")) {
+            $row = $result->fetch_assoc();
+            if ($row) {
+                return intval($row['id'] ?? 0);
+            }
+        }
+    } catch (Exception $e) {
+        return 0;
+    }
+
+    return 0;
+}
+
+function ensure_payment_gateway_settings_table(mysqli $conn, int $businessId = 0): void {
     $conn->query(
         "CREATE TABLE IF NOT EXISTS payment_gateway_settings (
-            id TINYINT UNSIGNED NOT NULL PRIMARY KEY,
+            id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            business_id INT NOT NULL,
             gateway VARCHAR(40) NOT NULL DEFAULT 'paystack',
             enabled TINYINT(1) NOT NULL DEFAULT 0,
             use_sandbox TINYINT(1) NOT NULL DEFAULT 1,
             public_key VARCHAR(200) DEFAULT '',
             secret_key_ciphertext TEXT DEFAULT NULL,
             secret_key_iv VARCHAR(120) DEFAULT NULL,
-            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uk_payment_gateway_business_id (business_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
     );
 
+    $schemaQueries = [
+        "ALTER TABLE payment_gateway_settings MODIFY id INT NOT NULL AUTO_INCREMENT",
+        "ALTER TABLE payment_gateway_settings ADD COLUMN business_id INT NULL AFTER id"
+    ];
+    foreach ($schemaQueries as $sql) {
+        try {
+            $conn->query($sql);
+        } catch (mysqli_sql_exception $e) {
+            $code = intval($e->getCode());
+            if (!in_array($code, [1060, 1061, 1067], true)) {
+                throw $e;
+            }
+        }
+    }
+
+    $effectiveBusinessId = resolve_paystack_business_id($conn, $businessId);
+    if ($effectiveBusinessId > 0) {
+        $repairStmt = $conn->prepare(
+            "UPDATE payment_gateway_settings
+             SET business_id = ?
+             WHERE business_id IS NULL OR business_id = 0"
+        );
+        $repairStmt->bind_param('i', $effectiveBusinessId);
+        $repairStmt->execute();
+        $repairStmt->close();
+        try {
+            $conn->query("ALTER TABLE payment_gateway_settings MODIFY business_id INT NOT NULL");
+        } catch (mysqli_sql_exception $e) {
+            if (intval($e->getCode()) !== 1265) {
+                throw $e;
+            }
+        }
+        $conn->query(
+            "DELETE t_old FROM payment_gateway_settings t_old
+             JOIN payment_gateway_settings t_new
+               ON t_old.business_id = t_new.business_id
+              AND t_old.id < t_new.id"
+        );
+        try {
+            $conn->query("ALTER TABLE payment_gateway_settings ADD UNIQUE KEY uk_payment_gateway_business_id (business_id)");
+        } catch (mysqli_sql_exception $e) {
+            if (intval($e->getCode()) !== 1061) {
+                throw $e;
+            }
+        }
+    }
+
+    if ($effectiveBusinessId <= 0) {
+        return;
+    }
+
+    $gateway = 'paystack';
+    $enabled = 0;
+    $useSandbox = 1;
+    $publicKey = '';
     $stmt = $conn->prepare(
-        "INSERT INTO payment_gateway_settings (id, gateway, enabled, use_sandbox, public_key)
-         VALUES (1, 'paystack', 0, 1, '')
-         ON DUPLICATE KEY UPDATE id = id"
+        "INSERT INTO payment_gateway_settings (business_id, gateway, enabled, use_sandbox, public_key)
+         VALUES (?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE business_id = business_id"
     );
+    $stmt->bind_param('isiis', $effectiveBusinessId, $gateway, $enabled, $useSandbox, $publicKey);
     $stmt->execute();
     $stmt->close();
 }
 
-function load_paystack_settings(mysqli $conn): array {
-    ensure_payment_gateway_settings_table($conn);
+function load_paystack_settings(mysqli $conn, int $businessId = 0): array {
+    $effectiveBusinessId = resolve_paystack_business_id($conn, $businessId);
+    ensure_payment_gateway_settings_table($conn, $effectiveBusinessId);
+
+    if ($effectiveBusinessId <= 0) {
+        return [];
+    }
+
     $stmt = $conn->prepare(
         "SELECT enabled, use_sandbox, public_key, secret_key_ciphertext, secret_key_iv, updated_at
          FROM payment_gateway_settings
-         WHERE id = 1
+         WHERE business_id = ?
          LIMIT 1"
     );
+    $stmt->bind_param('i', $effectiveBusinessId);
     $stmt->execute();
     $row = $stmt->get_result()->fetch_assoc();
     $stmt->close();
     return is_array($row) ? $row : [];
 }
 
-function paystack_secret_key(?mysqli $conn = null): string {
+function paystack_secret_key(?mysqli $conn = null, int $businessId = 0): string {
     $envSecret = trim((string)getenv('PAYSTACK_SECRET_KEY'));
     if ($envSecret !== '') {
         return $envSecret;
@@ -92,7 +188,7 @@ function paystack_secret_key(?mysqli $conn = null): string {
     }
 
     try {
-        $settings = load_paystack_settings($conn);
+        $settings = load_paystack_settings($conn, $businessId);
         $enabled = intval($settings['enabled'] ?? 0) === 1;
         $ciphertext = (string)($settings['secret_key_ciphertext'] ?? '');
         $iv = (string)($settings['secret_key_iv'] ?? '');
@@ -105,7 +201,7 @@ function paystack_secret_key(?mysqli $conn = null): string {
     }
 }
 
-function paystack_public_key(?mysqli $conn = null): string {
+function paystack_public_key(?mysqli $conn = null, int $businessId = 0): string {
     $envPublic = trim((string)getenv('PAYSTACK_PUBLIC_KEY'));
     if ($envPublic !== '') {
         return $envPublic;
@@ -113,12 +209,12 @@ function paystack_public_key(?mysqli $conn = null): string {
     if (!$conn) {
         return '';
     }
-    $settings = load_paystack_settings($conn);
+    $settings = load_paystack_settings($conn, $businessId);
     return trim((string)($settings['public_key'] ?? ''));
 }
 
-function paystack_is_configured(?mysqli $conn = null): bool {
-    return paystack_secret_key($conn) !== '';
+function paystack_is_configured(?mysqli $conn = null, int $businessId = 0): bool {
+    return paystack_secret_key($conn, $businessId) !== '';
 }
 
 function paystack_generate_reference(): string {
@@ -130,18 +226,23 @@ function paystack_generate_reference(): string {
     return 'MCPSK_' . date('YmdHis') . '_' . $suffix;
 }
 
-function paystack_callback_url(): string {
+function paystack_callback_url(?string $businessCode = null): string {
     $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
         || (isset($_SERVER['SERVER_PORT']) && intval($_SERVER['SERVER_PORT']) === 443);
     $scheme = $https ? 'https' : 'http';
     $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
     $scriptName = $_SERVER['SCRIPT_NAME'] ?? '/possystem/php/paystack-init.php';
     $projectPath = rtrim(str_replace('\\', '/', dirname(dirname($scriptName))), '/');
-    return $scheme . '://' . $host . $projectPath . '/pages/cart.html?payment=paystack';
+    $url = $scheme . '://' . $host . $projectPath . '/pages/cart.html?payment=paystack';
+    $safeCode = trim((string)$businessCode);
+    if ($safeCode !== '') {
+        $url .= '&tenant=' . rawurlencode($safeCode);
+    }
+    return $url;
 }
 
-function paystack_api_request(string $method, string $path, ?array $payload = null, ?mysqli $conn = null): array {
-    $secret = paystack_secret_key($conn);
+function paystack_api_request(string $method, string $path, ?array $payload = null, ?mysqli $conn = null, int $businessId = 0): array {
+    $secret = paystack_secret_key($conn, $businessId);
     if ($secret === '') {
         throw new Exception('PAYSTACK_SECRET_KEY is not configured on the server.');
     }
@@ -194,9 +295,9 @@ function paystack_api_request(string $method, string $path, ?array $payload = nu
     return $data;
 }
 
-function paystack_verify_transaction(string $reference, ?mysqli $conn = null): array {
+function paystack_verify_transaction(string $reference, ?mysqli $conn = null, int $businessId = 0): array {
     $safeReference = rawurlencode($reference);
-    return paystack_api_request('GET', '/transaction/verify/' . $safeReference, null, $conn);
+    return paystack_api_request('GET', '/transaction/verify/' . $safeReference, null, $conn, $businessId);
 }
 
 function append_payment_note(string $notes, string $reference): string {
@@ -222,6 +323,10 @@ function finalize_paystack_intent(mysqli $conn, string $reference, array $verifi
 
         if (!$intent) {
             throw new Exception('Payment intent not found.');
+        }
+        $businessId = intval($intent['business_id'] ?? 0);
+        if ($businessId <= 0) {
+            throw new Exception('Invalid payment business context.');
         }
 
         $existingOrderId = intval($intent['order_id'] ?? 0);
@@ -250,7 +355,7 @@ function finalize_paystack_intent(mysqli $conn, string $reference, array $verifi
             throw new Exception('Stored cart data is invalid.');
         }
 
-        $productStmt = $conn->prepare("SELECT id, name, price, stock FROM products WHERE id = ? FOR UPDATE");
+        $productStmt = $conn->prepare("SELECT id, name, price, stock FROM products WHERE id = ? AND business_id = ? FOR UPDATE");
         $validatedItems = [];
         $subtotal = 0.0;
 
@@ -261,7 +366,7 @@ function finalize_paystack_intent(mysqli $conn, string $reference, array $verifi
                 throw new Exception('Invalid item in stored cart.');
             }
 
-            $productStmt->bind_param('i', $productId);
+            $productStmt->bind_param('ii', $productId, $businessId);
             $productStmt->execute();
             $product = $productStmt->get_result()->fetch_assoc();
             if (!$product) {
@@ -306,11 +411,12 @@ function finalize_paystack_intent(mysqli $conn, string $reference, array $verifi
 
         $orderStmt = $conn->prepare(
             "INSERT INTO orders
-            (customer_name, customer_email, customer_phone, address, city, postal_code, subtotal, tax, shipping, total, notes, status, payment_method, payment_status, payment_reference, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'paid', 'paystack_mobile_money', 'paid', ?, NOW())"
+            (business_id, customer_name, customer_email, customer_phone, address, city, postal_code, subtotal, tax, shipping, total, notes, status, payment_method, payment_status, payment_reference, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'paid', 'paystack_mobile_money', 'paid', ?, NOW())"
         );
         $orderStmt->bind_param(
-            'ssssssddddss',
+            'issssssddddss',
+            $businessId,
             $customerName,
             $customerEmail,
             $customerPhone,
@@ -328,14 +434,14 @@ function finalize_paystack_intent(mysqli $conn, string $reference, array $verifi
         $orderId = intval($conn->insert_id);
         $orderStmt->close();
 
-        $itemStmt = $conn->prepare("INSERT INTO order_items (order_id, product_id, product_name, quantity, price) VALUES (?, ?, ?, ?, ?)");
-        $stockStmt = $conn->prepare("UPDATE products SET stock = stock - ? WHERE id = ?");
+        $itemStmt = $conn->prepare("INSERT INTO order_items (order_id, business_id, product_id, product_name, quantity, price) VALUES (?, ?, ?, ?, ?, ?)");
+        $stockStmt = $conn->prepare("UPDATE products SET stock = stock - ? WHERE id = ? AND business_id = ?");
 
         foreach ($validatedItems as $item) {
-            $itemStmt->bind_param('iisid', $orderId, $item['id'], $item['name'], $item['quantity'], $item['price']);
+            $itemStmt->bind_param('iiisid', $orderId, $businessId, $item['id'], $item['name'], $item['quantity'], $item['price']);
             $itemStmt->execute();
 
-            $stockStmt->bind_param('ii', $item['quantity'], $item['id']);
+            $stockStmt->bind_param('iii', $item['quantity'], $item['id'], $businessId);
             $stockStmt->execute();
         }
         $itemStmt->close();

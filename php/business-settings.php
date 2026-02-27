@@ -3,6 +3,7 @@ header('Content-Type: application/json');
 
 include 'admin-auth.php';
 include 'db-connection.php';
+include 'tenant-context.php';
 
 const DEFAULT_BUSINESS_NAME = 'Mother Care';
 const DEFAULT_BUSINESS_EMAIL = 'info@mothercare.com';
@@ -16,36 +17,15 @@ function respond($success, $message = '', $extra = []) {
     exit();
 }
 
-function ensure_business_settings_table($conn) {
-    $conn->query(
-        "CREATE TABLE IF NOT EXISTS business_settings (
-            id TINYINT UNSIGNED NOT NULL PRIMARY KEY,
-            business_name VARCHAR(180) NOT NULL,
-            business_email VARCHAR(160) NOT NULL,
-            contact_number VARCHAR(40) NOT NULL,
-            logo_filename VARCHAR(255) DEFAULT '',
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
-    );
+function default_settings_for_business(array $business = []) {
+    $name = trim((string)($business['business_name'] ?? ''));
+    $email = trim((string)($business['business_email'] ?? ''));
+    $phone = trim((string)($business['contact_number'] ?? ''));
 
-    $stmt = $conn->prepare(
-        "INSERT INTO business_settings (id, business_name, business_email, contact_number, logo_filename)
-         VALUES (1, ?, ?, ?, '')
-         ON DUPLICATE KEY UPDATE id = id"
-    );
-    $defaultName = DEFAULT_BUSINESS_NAME;
-    $defaultEmail = DEFAULT_BUSINESS_EMAIL;
-    $defaultContact = DEFAULT_CONTACT_NUMBER;
-    $stmt->bind_param('sss', $defaultName, $defaultEmail, $defaultContact);
-    $stmt->execute();
-    $stmt->close();
-}
-
-function default_settings() {
     return [
-        'business_name' => DEFAULT_BUSINESS_NAME,
-        'business_email' => DEFAULT_BUSINESS_EMAIL,
-        'contact_number' => DEFAULT_CONTACT_NUMBER,
+        'business_name' => $name !== '' ? $name : DEFAULT_BUSINESS_NAME,
+        'business_email' => $email !== '' ? $email : DEFAULT_BUSINESS_EMAIL,
+        'contact_number' => $phone !== '' ? $phone : DEFAULT_CONTACT_NUMBER,
         'logo_filename' => '',
         'updated_at' => null
     ];
@@ -111,32 +91,58 @@ function handle_logo_upload($fieldName) {
     return $filename;
 }
 
-function load_settings($conn) {
+function load_settings(mysqli $conn, int $businessId, array $business = []) {
     $stmt = $conn->prepare(
         "SELECT business_name, business_email, contact_number, logo_filename, updated_at
          FROM business_settings
-         WHERE id = 1
+         WHERE business_id = ?
          LIMIT 1"
     );
+    $stmt->bind_param('i', $businessId);
     $stmt->execute();
     $row = $stmt->get_result()->fetch_assoc();
     $stmt->close();
 
     if (!$row) {
-        return default_settings();
+        return default_settings_for_business($business);
     }
 
+    $defaults = default_settings_for_business($business);
     return [
-        'business_name' => $row['business_name'] ?? DEFAULT_BUSINESS_NAME,
-        'business_email' => $row['business_email'] ?? DEFAULT_BUSINESS_EMAIL,
-        'contact_number' => $row['contact_number'] ?? DEFAULT_CONTACT_NUMBER,
+        'business_name' => $row['business_name'] ?? $defaults['business_name'],
+        'business_email' => $row['business_email'] ?? $defaults['business_email'],
+        'contact_number' => $row['contact_number'] ?? $defaults['contact_number'],
         'logo_filename' => $row['logo_filename'] ?? '',
         'updated_at' => $row['updated_at'] ?? null
     ];
 }
 
+function resolve_business_for_request(mysqli $conn, string $method): array {
+    if ($method === 'GET') {
+        $requestedCode = trim((string)($_GET['business_code'] ?? ($_GET['tenant'] ?? '')));
+        return tenant_require_business_context(
+            $conn,
+            ['business_code' => $requestedCode],
+            true
+        );
+    }
+
+    require_roles_api(['owner']);
+    $businessId = current_business_id();
+    if ($businessId <= 0) {
+        throw new Exception('Invalid business context. Please sign in again.');
+    }
+    $business = tenant_fetch_business_by_id($conn, $businessId);
+    if (!$business) {
+        throw new Exception('Business account not found.');
+    }
+    tenant_set_session_context($business);
+    return $business;
+}
+
 try {
-    ensure_business_settings_table($conn);
+    ensure_multitenant_schema($conn);
+
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     if ($method === 'POST' && isset($_POST['_method'])) {
         $override = strtoupper(trim($_POST['_method']));
@@ -145,19 +151,39 @@ try {
         }
     }
 
+    $business = resolve_business_for_request($conn, $method);
+    $businessId = intval($business['id'] ?? 0);
+    if ($businessId <= 0) {
+        throw new Exception('Business account not found.');
+    }
+
+    tenant_ensure_business_settings_row(
+        $conn,
+        $businessId,
+        (string)($business['business_name'] ?? DEFAULT_BUSINESS_NAME),
+        (string)($business['business_email'] ?? DEFAULT_BUSINESS_EMAIL),
+        (string)($business['contact_number'] ?? DEFAULT_CONTACT_NUMBER)
+    );
+
     if ($method === 'GET') {
-        respond(true, '', ['settings' => load_settings($conn)]);
+        respond(true, '', [
+            'business' => [
+                'id' => $businessId,
+                'business_code' => $business['business_code'] ?? '',
+                'status' => $business['status'] ?? 'active',
+                'subscription_plan' => $business['subscription_plan'] ?? MULTI_TENANT_DEFAULT_PLAN
+            ],
+            'settings' => load_settings($conn, $businessId, $business)
+        ]);
     }
 
     if ($method === 'PUT') {
-        require_roles_api(['owner']);
-
         $data = get_request_data();
         if (!is_array($data)) {
             respond(false, 'Invalid request payload');
         }
 
-        $existing = load_settings($conn);
+        $existing = load_settings($conn, $businessId, $business);
 
         $businessName = trim($data['business_name'] ?? '');
         $businessEmail = trim($data['business_email'] ?? '');
@@ -192,33 +218,64 @@ try {
         $stmt = $conn->prepare(
             "UPDATE business_settings
              SET business_name = ?, business_email = ?, contact_number = ?, logo_filename = ?
-             WHERE id = 1"
+             WHERE business_id = ?"
         );
-        $stmt->bind_param('ssss', $businessName, $businessEmail, $contactNumber, $logoFilename);
+        $stmt->bind_param('ssssi', $businessName, $businessEmail, $contactNumber, $logoFilename, $businessId);
         $stmt->execute();
         $stmt->close();
 
-        respond(true, 'Business settings updated successfully', ['settings' => load_settings($conn)]);
+        $businessUpdateStmt = $conn->prepare(
+            "UPDATE businesses
+             SET business_name = ?, business_email = ?, contact_number = ?
+             WHERE id = ?"
+        );
+        $businessUpdateStmt->bind_param('sssi', $businessName, $businessEmail, $contactNumber, $businessId);
+        $businessUpdateStmt->execute();
+        $businessUpdateStmt->close();
+
+        $business = tenant_fetch_business_by_id($conn, $businessId) ?: $business;
+        tenant_set_session_context($business);
+
+        respond(true, 'Business settings updated successfully', [
+            'business' => [
+                'id' => $businessId,
+                'business_code' => $business['business_code'] ?? '',
+                'status' => $business['status'] ?? 'active',
+                'subscription_plan' => $business['subscription_plan'] ?? MULTI_TENANT_DEFAULT_PLAN
+            ],
+            'settings' => load_settings($conn, $businessId, $business)
+        ]);
     }
 
     if ($method === 'DELETE') {
-        require_roles_api(['owner']);
-
-        $defaultName = DEFAULT_BUSINESS_NAME;
-        $defaultEmail = DEFAULT_BUSINESS_EMAIL;
-        $defaultContact = DEFAULT_CONTACT_NUMBER;
+        $fallback = default_settings_for_business($business);
         $emptyLogo = '';
 
         $stmt = $conn->prepare(
             "UPDATE business_settings
              SET business_name = ?, business_email = ?, contact_number = ?, logo_filename = ?
-             WHERE id = 1"
+             WHERE business_id = ?"
         );
-        $stmt->bind_param('ssss', $defaultName, $defaultEmail, $defaultContact, $emptyLogo);
+        $stmt->bind_param(
+            'ssssi',
+            $fallback['business_name'],
+            $fallback['business_email'],
+            $fallback['contact_number'],
+            $emptyLogo,
+            $businessId
+        );
         $stmt->execute();
         $stmt->close();
 
-        respond(true, 'Business info deleted and reset to default', ['settings' => load_settings($conn)]);
+        respond(true, 'Business info reset successfully', [
+            'business' => [
+                'id' => $businessId,
+                'business_code' => $business['business_code'] ?? '',
+                'status' => $business['status'] ?? 'active',
+                'subscription_plan' => $business['subscription_plan'] ?? MULTI_TENANT_DEFAULT_PLAN
+            ],
+            'settings' => load_settings($conn, $businessId, $business)
+        ]);
     }
 
     http_response_code(405);

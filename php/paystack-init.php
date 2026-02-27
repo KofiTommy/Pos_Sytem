@@ -2,6 +2,7 @@
 header('Content-Type: application/json');
 include 'db-connection.php';
 include 'payment-schema.php';
+include 'tenant-context.php';
 include 'paystack-service.php';
 
 function respond($success, $message = '', $extra = []) {
@@ -17,16 +18,26 @@ try {
         throw new Exception('Invalid request method');
     }
 
-    if (!paystack_is_configured($conn)) {
-        throw new Exception('Mobile Money is not configured yet. Set Paystack key in Payment Settings or PAYSTACK_SECRET_KEY.');
-    }
-
     ensure_payment_schema($conn);
 
     $raw = file_get_contents('php://input');
     $body = json_decode($raw, true);
     if (!is_array($body)) {
         $body = $_POST;
+    }
+
+    $business = tenant_require_business_context(
+        $conn,
+        ['business_code' => $body['business_code'] ?? ''],
+        true
+    );
+    $businessId = intval($business['id'] ?? 0);
+    if ($businessId <= 0) {
+        throw new Exception('Business account not found.');
+    }
+
+    if (!paystack_is_configured($conn, $businessId)) {
+        throw new Exception('Mobile Money is not configured yet. Set Paystack key in Payment Settings or PAYSTACK_SECRET_KEY.');
     }
 
     $customerName = trim((string)($body['customer_name'] ?? ''));
@@ -53,7 +64,7 @@ try {
         throw new Exception('Cart is too large.');
     }
 
-    $productStmt = $conn->prepare("SELECT id, name, price, stock FROM products WHERE id = ?");
+    $productStmt = $conn->prepare("SELECT id, name, price, stock FROM products WHERE id = ? AND business_id = ?");
     $validatedItems = [];
     $subtotal = 0.0;
     foreach ($cart as $item) {
@@ -63,7 +74,7 @@ try {
             throw new Exception('Invalid cart item.');
         }
 
-        $productStmt->bind_param('i', $productId);
+        $productStmt->bind_param('ii', $productId, $businessId);
         $productStmt->execute();
         $product = $productStmt->get_result()->fetch_assoc();
         if (!$product) {
@@ -97,11 +108,12 @@ try {
     $status = 'initialized';
     $intentStmt = $conn->prepare(
         "INSERT INTO payment_intents
-         (reference, customer_name, customer_email, customer_phone, address, city, postal_code, notes, cart_json, subtotal, tax, shipping, total, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+         (business_id, reference, customer_name, customer_email, customer_phone, address, city, postal_code, notes, cart_json, subtotal, tax, shipping, total, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     );
     $intentStmt->bind_param(
-        'sssssssssdddds',
+        'isssssssssdddds',
+        $businessId,
         $reference,
         $customerName,
         $customerEmail,
@@ -127,21 +139,22 @@ try {
             'amount' => intval(round($total * 100)),
             'currency' => 'GBP',
             'reference' => $reference,
-            'callback_url' => paystack_callback_url(),
+            'callback_url' => paystack_callback_url((string)($business['business_code'] ?? '')),
             'channels' => ['mobile_money'],
             'metadata' => [
-                'intent_id' => $intentId,
-                'customer_name' => $customerName
-            ]
-        ];
-        $gatewayResp = paystack_api_request('POST', '/transaction/initialize', $gatewayPayload, $conn);
+                    'intent_id' => $intentId,
+                    'business_id' => $businessId,
+                    'customer_name' => $customerName
+                ]
+            ];
+        $gatewayResp = paystack_api_request('POST', '/transaction/initialize', $gatewayPayload, $conn, $businessId);
     } catch (Exception $e) {
         $failedStatus = 'init_failed';
         $gatewayResponse = json_encode(['error' => $e->getMessage()]);
         $failStmt = $conn->prepare(
-            "UPDATE payment_intents SET status = ?, gateway_response = ? WHERE id = ?"
+            "UPDATE payment_intents SET status = ?, gateway_response = ? WHERE id = ? AND business_id = ?"
         );
-        $failStmt->bind_param('ssi', $failedStatus, $gatewayResponse, $intentId);
+        $failStmt->bind_param('ssii', $failedStatus, $gatewayResponse, $intentId, $businessId);
         $failStmt->execute();
         $failStmt->close();
         throw $e;
@@ -159,9 +172,9 @@ try {
     $updateStmt = $conn->prepare(
         "UPDATE payment_intents
          SET status = ?, paystack_access_code = ?, gateway_response = ?
-         WHERE id = ?"
+         WHERE id = ? AND business_id = ?"
     );
-    $updateStmt->bind_param('sssi', $pendingStatus, $accessCode, $gatewayResponseJson, $intentId);
+    $updateStmt->bind_param('sssii', $pendingStatus, $accessCode, $gatewayResponseJson, $intentId, $businessId);
     $updateStmt->execute();
     $updateStmt->close();
 
