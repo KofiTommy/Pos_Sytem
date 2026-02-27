@@ -8,9 +8,16 @@
     --mc-primary: #0f766e;
     --mc-primary-strong: #0b5f58;
     --mc-accent: #f59e0b;
+    --mc-focus-ring: rgba(245, 158, 11, 0.45);
     --mc-border: #dce7e3;
     --mc-danger: #dc2626;
     --mc-success: #16a34a;
+    --mc-hero-start: #0f766e;
+    --mc-hero-mid: #0c5f89;
+    --mc-hero-end: #0b3f5e;
+    --mc-cta-start: #0f766e;
+    --mc-cta-mid: #0b5f58;
+    --mc-cta-end: #166534;
     --mc-shadow-sm: 0 6px 14px rgba(15, 118, 110, 0.08);
     --mc-shadow-md: 0 14px 30px rgba(15, 118, 110, 0.14);
     --mc-radius-sm: 10px;
@@ -63,7 +70,7 @@ a:hover {
 
 /* Global focus visibility for keyboard accessibility */
 :focus-visible {
-    outline: 3px solid rgba(245, 158, 11, 0.45);
+    outline: 3px solid var(--mc-focus-ring);
     outline-offset: 2px;
 }
 
@@ -102,7 +109,7 @@ a:hover {
 
 /* Hero section */
 .hero-section {
-    background: linear-gradient(130deg, #0f766e 0%, #0c5f89 55%, #0b3f5e 100%);
+    background: linear-gradient(130deg, var(--mc-hero-start) 0%, var(--mc-hero-mid) 55%, var(--mc-hero-end) 100%);
     min-height: 620px;
     display: flex;
     align-items: center;
@@ -141,7 +148,7 @@ a:hover {
 
 /* CTA section */
 .cta-section {
-    background: linear-gradient(145deg, #0f766e 0%, #0b5f58 50%, #166534 100%);
+    background: linear-gradient(145deg, var(--mc-cta-start) 0%, var(--mc-cta-mid) 50%, var(--mc-cta-end) 100%);
     padding: 84px 0;
     color: #fff;
 }

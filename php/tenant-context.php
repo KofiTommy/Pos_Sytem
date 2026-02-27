@@ -7,6 +7,9 @@ const MULTI_TENANT_DEFAULT_NAME = 'Mother Care';
 const MULTI_TENANT_DEFAULT_EMAIL = 'info@mothercare.com';
 const MULTI_TENANT_DEFAULT_PHONE = '+233 000 000 000';
 const MULTI_TENANT_DEFAULT_PLAN = 'starter';
+const MULTI_TENANT_DEFAULT_THEME_PALETTE = 'default';
+const MULTI_TENANT_DEFAULT_HERO_TAGLINE = 'Premium baby care products for your little ones. Quality you can trust.';
+const MULTI_TENANT_DEFAULT_FOOTER_NOTE = 'Trusted essentials, safe choices, and a smooth shopping experience for every parent.';
 
 function run_tenant_schema_query(mysqli $conn, string $sql, array $ignoreCodes = [1060, 1061, 1091]): void {
     try {
@@ -30,6 +33,65 @@ function tenant_table_exists(mysqli $conn, string $table): bool {
     $row = $stmt->get_result()->fetch_assoc();
     $stmt->close();
     return intval($row['total'] ?? 0) > 0;
+}
+
+function tenant_multitenant_schema_cached(?bool $set = null): ?bool {
+    static $cached = null;
+    if ($set !== null) {
+        $cached = $set;
+    }
+    return $cached;
+}
+
+function tenant_is_multitenant_schema_ready(mysqli $conn): bool {
+    $cached = tenant_multitenant_schema_cached();
+    if ($cached !== null) {
+        return $cached;
+    }
+
+    $stmt = $conn->prepare(
+        "SELECT COUNT(*) AS total
+         FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND (
+                (TABLE_NAME = 'businesses' AND COLUMN_NAME = 'business_code')
+             OR (TABLE_NAME = 'users' AND COLUMN_NAME = 'business_id')
+             OR (TABLE_NAME = 'products' AND COLUMN_NAME = 'business_id')
+             OR (TABLE_NAME = 'orders' AND COLUMN_NAME = 'business_id')
+             OR (TABLE_NAME = 'order_items' AND COLUMN_NAME = 'business_id')
+             OR (TABLE_NAME = 'business_settings' AND COLUMN_NAME = 'business_id')
+             OR (TABLE_NAME = 'business_settings' AND COLUMN_NAME = 'theme_palette')
+             OR (TABLE_NAME = 'business_settings' AND COLUMN_NAME = 'hero_tagline')
+             OR (TABLE_NAME = 'business_settings' AND COLUMN_NAME = 'footer_note')
+             OR (TABLE_NAME = 'payment_intents' AND COLUMN_NAME = 'business_id')
+             OR (TABLE_NAME = 'payment_gateway_settings' AND COLUMN_NAME = 'business_id')
+           )"
+    );
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    $indexStmt = $conn->prepare(
+        "SELECT COUNT(*) AS total
+         FROM INFORMATION_SCHEMA.STATISTICS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME = 'products'
+           AND INDEX_NAME IN (
+             'idx_products_business_id',
+             'idx_products_business_created',
+             'idx_products_business_featured_created',
+             'idx_products_business_name',
+             'idx_products_business_category'
+           )"
+    );
+    $indexStmt->execute();
+    $indexRow = $indexStmt->get_result()->fetch_assoc();
+    $indexStmt->close();
+
+    $hasProductPerformanceIndexes = intval($indexRow['total'] ?? 0) >= 5;
+    $isReady = intval($row['total'] ?? 0) >= 11 && $hasProductPerformanceIndexes;
+    tenant_multitenant_schema_cached($isReady);
+    return $isReady;
 }
 
 function tenant_slugify_code(string $value): string {
@@ -165,6 +227,37 @@ function tenant_set_session_context(array $business): void {
     }
 }
 
+function tenant_request_uri_business_code(): string {
+    $requestUri = (string)($_SERVER['REQUEST_URI'] ?? '');
+    if ($requestUri === '') {
+        return '';
+    }
+
+    $path = parse_url($requestUri, PHP_URL_PATH);
+    if (!is_string($path) || $path === '') {
+        return '';
+    }
+
+    $segments = array_values(array_filter(
+        explode('/', trim($path, '/')),
+        static function ($part) {
+            return $part !== '';
+        }
+    ));
+
+    for ($i = 0; $i < count($segments) - 1; $i++) {
+        if (strtolower((string)$segments[$i]) !== 'b') {
+            continue;
+        }
+        $candidate = tenant_slugify_code((string)$segments[$i + 1]);
+        if ($candidate !== '') {
+            return $candidate;
+        }
+    }
+
+    return '';
+}
+
 function tenant_request_business_code(array $payload = []): string {
     $candidates = [];
     if (isset($payload['business_code'])) {
@@ -178,6 +271,10 @@ function tenant_request_business_code(array $payload = []): string {
     }
     if (isset($_GET['tenant'])) {
         $candidates[] = $_GET['tenant'];
+    }
+    $fromRequestPath = tenant_request_uri_business_code();
+    if ($fromRequestPath !== '') {
+        $candidates[] = $fromRequestPath;
     }
     if (!empty($_SERVER['HTTP_X_BUSINESS_CODE'])) {
         $candidates[] = $_SERVER['HTTP_X_BUSINESS_CODE'];
@@ -205,12 +302,15 @@ function tenant_ensure_business_settings_row(mysqli $conn, int $businessId, stri
     }
 
     $logo = '';
+    $palette = MULTI_TENANT_DEFAULT_THEME_PALETTE;
+    $heroTagline = MULTI_TENANT_DEFAULT_HERO_TAGLINE;
+    $footerNote = MULTI_TENANT_DEFAULT_FOOTER_NOTE;
     $stmt = $conn->prepare(
-        "INSERT INTO business_settings (business_id, business_name, business_email, contact_number, logo_filename)
-         VALUES (?, ?, ?, ?, ?)
+        "INSERT INTO business_settings (business_id, business_name, business_email, contact_number, logo_filename, theme_palette, hero_tagline, footer_note)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE business_id = business_id"
     );
-    $stmt->bind_param('issss', $businessId, $name, $email, $phone, $logo);
+    $stmt->bind_param('isssssss', $businessId, $name, $email, $phone, $logo, $palette, $heroTagline, $footerNote);
     $stmt->execute();
     $stmt->close();
 }
@@ -238,6 +338,14 @@ function ensure_multitenant_schema(mysqli $conn): void {
     static $ready = false;
     if ($ready) {
         return;
+    }
+
+    if (tenant_is_multitenant_schema_ready($conn)) {
+        $defaultBusiness = tenant_fetch_default_business($conn);
+        if ($defaultBusiness) {
+            $ready = true;
+            return;
+        }
     }
 
     $conn->query(
@@ -300,6 +408,9 @@ function ensure_multitenant_schema(mysqli $conn): void {
     if (tenant_table_exists($conn, 'business_settings')) {
         run_tenant_schema_query($conn, "ALTER TABLE business_settings MODIFY id INT NOT NULL AUTO_INCREMENT", [1060, 1067, 1833]);
         run_tenant_schema_query($conn, "ALTER TABLE business_settings ADD COLUMN business_id INT NULL AFTER id");
+        run_tenant_schema_query($conn, "ALTER TABLE business_settings ADD COLUMN theme_palette VARCHAR(30) NOT NULL DEFAULT 'default' AFTER logo_filename");
+        run_tenant_schema_query($conn, "ALTER TABLE business_settings ADD COLUMN hero_tagline VARCHAR(320) NOT NULL DEFAULT 'Premium baby care products for your little ones. Quality you can trust.' AFTER theme_palette");
+        run_tenant_schema_query($conn, "ALTER TABLE business_settings ADD COLUMN footer_note VARCHAR(320) NOT NULL DEFAULT 'Trusted essentials, safe choices, and a smooth shopping experience for every parent.' AFTER hero_tagline");
         run_tenant_schema_query($conn, "ALTER TABLE business_settings ADD UNIQUE KEY uk_business_settings_business_id (business_id)");
         $updateStmt = $conn->prepare(
             "UPDATE business_settings
@@ -334,6 +445,10 @@ function ensure_multitenant_schema(mysqli $conn): void {
         $updateStmt->close();
         run_tenant_schema_query($conn, "ALTER TABLE products MODIFY business_id INT NOT NULL", [1265]);
         run_tenant_schema_query($conn, "ALTER TABLE products ADD INDEX idx_products_business_id (business_id)");
+        run_tenant_schema_query($conn, "ALTER TABLE products ADD INDEX idx_products_business_created (business_id, created_at)");
+        run_tenant_schema_query($conn, "ALTER TABLE products ADD INDEX idx_products_business_featured_created (business_id, featured, created_at)");
+        run_tenant_schema_query($conn, "ALTER TABLE products ADD INDEX idx_products_business_name (business_id, name)");
+        run_tenant_schema_query($conn, "ALTER TABLE products ADD INDEX idx_products_business_category (business_id, category)");
     }
 
     if (tenant_table_exists($conn, 'orders')) {
@@ -417,6 +532,7 @@ function ensure_multitenant_schema(mysqli $conn): void {
     tenant_ensure_business_settings_row($conn, $defaultBusinessId, $defaultName, $defaultEmail, $defaultPhone);
     tenant_ensure_payment_gateway_row($conn, $defaultBusinessId);
 
+    tenant_multitenant_schema_cached(true);
     $ready = true;
 }
 
@@ -448,14 +564,6 @@ function tenant_resolve_business_context(mysqli $conn, array $payload = [], bool
     }
 
     tenant_set_session_context($business);
-    tenant_ensure_business_settings_row(
-        $conn,
-        intval($business['id']),
-        (string)($business['business_name'] ?? MULTI_TENANT_DEFAULT_NAME),
-        (string)($business['business_email'] ?? MULTI_TENANT_DEFAULT_EMAIL),
-        (string)($business['contact_number'] ?? MULTI_TENANT_DEFAULT_PHONE)
-    );
-    tenant_ensure_payment_gateway_row($conn, intval($business['id']));
     return $business;
 }
 

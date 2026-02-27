@@ -42,6 +42,10 @@ ALTER TABLE products ADD COLUMN IF NOT EXISTS business_id INT NULL AFTER id;
 UPDATE products SET business_id = @default_business_id WHERE business_id IS NULL OR business_id = 0;
 ALTER TABLE products MODIFY business_id INT NOT NULL;
 ALTER TABLE products ADD INDEX IF NOT EXISTS idx_products_business_id (business_id);
+ALTER TABLE products ADD INDEX IF NOT EXISTS idx_products_business_created (business_id, created_at);
+ALTER TABLE products ADD INDEX IF NOT EXISTS idx_products_business_featured_created (business_id, featured, created_at);
+ALTER TABLE products ADD INDEX IF NOT EXISTS idx_products_business_name (business_id, name);
+ALTER TABLE products ADD INDEX IF NOT EXISTS idx_products_business_category (business_id, category);
 
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS business_id INT NULL AFTER id;
 UPDATE orders SET business_id = @default_business_id WHERE business_id IS NULL OR business_id = 0;
@@ -60,6 +64,9 @@ ALTER TABLE order_items ADD INDEX IF NOT EXISTS idx_order_items_business_order (
 
 ALTER TABLE business_settings MODIFY id INT NOT NULL AUTO_INCREMENT;
 ALTER TABLE business_settings ADD COLUMN IF NOT EXISTS business_id INT NULL AFTER id;
+ALTER TABLE business_settings ADD COLUMN IF NOT EXISTS theme_palette VARCHAR(30) NOT NULL DEFAULT 'default' AFTER logo_filename;
+ALTER TABLE business_settings ADD COLUMN IF NOT EXISTS hero_tagline VARCHAR(320) NOT NULL DEFAULT 'Premium baby care products for your little ones. Quality you can trust.' AFTER theme_palette;
+ALTER TABLE business_settings ADD COLUMN IF NOT EXISTS footer_note VARCHAR(320) NOT NULL DEFAULT 'Trusted essentials, safe choices, and a smooth shopping experience for every parent.' AFTER hero_tagline;
 UPDATE business_settings SET business_id = @default_business_id WHERE business_id IS NULL OR business_id = 0;
 ALTER TABLE business_settings MODIFY business_id INT NOT NULL;
 ALTER TABLE business_settings ADD UNIQUE KEY IF NOT EXISTS uk_business_settings_business_id (business_id);
@@ -84,13 +91,16 @@ UPDATE contact_messages SET business_id = @default_business_id WHERE business_id
 ALTER TABLE contact_messages MODIFY business_id INT NOT NULL;
 ALTER TABLE contact_messages ADD INDEX IF NOT EXISTS idx_contact_messages_business_id (business_id);
 
-INSERT INTO business_settings (business_id, business_name, business_email, contact_number, logo_filename)
+INSERT INTO business_settings (business_id, business_name, business_email, contact_number, logo_filename, theme_palette, hero_tagline, footer_note)
 SELECT
   b.id,
   b.business_name,
   b.business_email,
   COALESCE(NULLIF(b.contact_number, ''), '+233 000 000 000'),
-  ''
+  '',
+  'default',
+  'Premium baby care products for your little ones. Quality you can trust.',
+  'Trusted essentials, safe choices, and a smooth shopping experience for every parent.'
 FROM businesses b
 LEFT JOIN business_settings s ON s.business_id = b.id
 WHERE s.business_id IS NULL;

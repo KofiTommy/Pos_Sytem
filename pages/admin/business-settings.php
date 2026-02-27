@@ -73,6 +73,27 @@ $currentRole = current_user_role();
                                 <input type="text" id="contactNumber" class="form-control" maxlength="40" required>
                             </div>
                             <div class="mb-3">
+                                <label for="heroTagline" class="form-label">Welcome Tagline</label>
+                                <textarea id="heroTagline" class="form-control" rows="2" maxlength="320"></textarea>
+                                <div class="form-text">Shown under "Welcome to" on the home page.</div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="footerNote" class="form-label">Footer Note</label>
+                                <textarea id="footerNote" class="form-control" rows="3" maxlength="320"></textarea>
+                                <div class="form-text">Shown in the main storefront footer text.</div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="themePalette" class="form-label">Color Palette</label>
+                                <select id="themePalette" class="form-select">
+                                    <option value="default">Default Teal</option>
+                                    <option value="ocean">Ocean Blue</option>
+                                    <option value="sunset">Sunset Orange</option>
+                                    <option value="forest">Forest Green</option>
+                                    <option value="mono">Slate Mono</option>
+                                </select>
+                                <div class="form-text">Choose storefront and POS accent colors for this business.</div>
+                            </div>
+                            <div class="mb-3">
                                 <label for="logoFile" class="form-label">Business Logo</label>
                                 <input type="file" id="logoFile" class="form-control" accept="image/*">
                                 <div class="form-text">Optional. Upload a logo image (max 5MB).</div>
@@ -104,6 +125,9 @@ $currentRole = current_user_role();
                             <h4 class="mb-1" id="namePreview">Mother Care</h4>
                             <p class="mb-1 text-muted" id="emailPreview">info@mothercare.com</p>
                             <p class="mb-0 text-muted" id="phonePreview">+233 000 000 000</p>
+                            <p class="mt-2 mb-1 small text-muted" id="heroPreview">Premium baby care products for your little ones. Quality you can trust.</p>
+                            <p class="mb-0 small text-muted" id="footerPreview">Trusted essentials, safe choices, and a smooth shopping experience for every parent.</p>
+                            <span class="badge bg-secondary mt-2" id="palettePreview">Palette: default</span>
                         </div>
                     </div>
                 </div>
@@ -137,12 +161,18 @@ $currentRole = current_user_role();
             const name = document.getElementById('businessName').value.trim() || 'Business name';
             const email = document.getElementById('businessEmail').value.trim() || 'email@example.com';
             const phone = document.getElementById('contactNumber').value.trim() || 'Phone number';
+            const heroTagline = document.getElementById('heroTagline').value.trim() || 'Premium baby care products for your little ones. Quality you can trust.';
+            const footerNote = document.getElementById('footerNote').value.trim() || 'Trusted essentials, safe choices, and a smooth shopping experience for every parent.';
+            const palette = document.getElementById('themePalette').value || 'default';
             const removeLogo = document.getElementById('removeLogo').checked;
             const logoFile = document.getElementById('logoFile').files[0];
 
             document.getElementById('namePreview').textContent = name;
             document.getElementById('emailPreview').textContent = email;
             document.getElementById('phonePreview').textContent = phone;
+            document.getElementById('heroPreview').textContent = heroTagline;
+            document.getElementById('footerPreview').textContent = footerNote;
+            document.getElementById('palettePreview').textContent = 'Palette: ' + palette;
 
             const preview = document.getElementById('logoPreview');
             if (removeLogo) {
@@ -179,6 +209,9 @@ $currentRole = current_user_role();
             document.getElementById('businessName').value = data.settings.business_name || '';
             document.getElementById('businessEmail').value = data.settings.business_email || '';
             document.getElementById('contactNumber').value = data.settings.contact_number || '';
+            document.getElementById('heroTagline').value = data.settings.hero_tagline || '';
+            document.getElementById('footerNote').value = data.settings.footer_note || '';
+            document.getElementById('themePalette').value = data.settings.theme_palette || 'default';
             document.getElementById('removeLogo').checked = false;
             document.getElementById('logoFile').value = '';
             currentLogoFilename = data.settings.logo_filename || '';
@@ -197,6 +230,9 @@ $currentRole = current_user_role();
                 payload.append('business_name', document.getElementById('businessName').value.trim());
                 payload.append('business_email', document.getElementById('businessEmail').value.trim());
                 payload.append('contact_number', document.getElementById('contactNumber').value.trim());
+                payload.append('hero_tagline', document.getElementById('heroTagline').value.trim());
+                payload.append('footer_note', document.getElementById('footerNote').value.trim());
+                payload.append('theme_palette', document.getElementById('themePalette').value);
                 payload.append('remove_logo', document.getElementById('removeLogo').checked ? '1' : '0');
 
                 const logoFile = document.getElementById('logoFile').files[0];
@@ -254,6 +290,9 @@ $currentRole = current_user_role();
         document.getElementById('businessName').addEventListener('input', renderPreview);
         document.getElementById('businessEmail').addEventListener('input', renderPreview);
         document.getElementById('contactNumber').addEventListener('input', renderPreview);
+        document.getElementById('heroTagline').addEventListener('input', renderPreview);
+        document.getElementById('footerNote').addEventListener('input', renderPreview);
+        document.getElementById('themePalette').addEventListener('change', renderPreview);
         document.getElementById('logoFile').addEventListener('change', renderPreview);
         document.getElementById('removeLogo').addEventListener('change', renderPreview);
         document.getElementById('deleteBtn').addEventListener('click', deleteSettings);

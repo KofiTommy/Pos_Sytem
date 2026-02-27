@@ -1,3 +1,16 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Keep tenant landing URLs directory-style so relative links stay stable.
+    RewriteRule ^b/([a-z0-9-]+)$ b/$1/ [R=302,L,NC]
+
+    # Tenant storefront homepage.
+    RewriteRule ^b/([a-z0-9-]+)/$ index.html?tenant=$1 [L,QSA,NC]
+
+    # Tenant-scoped pages/assets/api routes (single codebase, per-tenant context).
+    RewriteRule ^b/([a-z0-9-]+)/(.+)$ $2?tenant=$1 [L,QSA,NC]
+</IfModule>
+
 <IfModule mod_deflate.c>
     AddOutputFilterByType DEFLATE text/plain text/css application/javascript application/json text/javascript image/svg+xml application/xml text/xml
 </IfModule>
@@ -29,4 +42,3 @@
         Header set Cache-Control "no-cache, no-store, must-revalidate"
     </FilesMatch>
 </IfModule>
-

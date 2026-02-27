@@ -4,7 +4,73 @@
         business_name: 'Mother Care',
         business_email: 'info@mothercare.com',
         contact_number: '+233 000 000 000',
-        logo_filename: ''
+        logo_filename: '',
+        theme_palette: 'default',
+        hero_tagline: 'Premium baby care products for your little ones. Quality you can trust.',
+        footer_note: 'Trusted essentials, safe choices, and a smooth shopping experience for every parent.'
+    };
+
+    const PALETTES = {
+        default: {
+            '--mc-primary': '#0f766e',
+            '--mc-primary-strong': '#0b5f58',
+            '--mc-accent': '#f59e0b',
+            '--mc-focus-ring': 'rgba(245, 158, 11, 0.45)',
+            '--mc-hero-start': '#0f766e',
+            '--mc-hero-mid': '#0c5f89',
+            '--mc-hero-end': '#0b3f5e',
+            '--mc-cta-start': '#0f766e',
+            '--mc-cta-mid': '#0b5f58',
+            '--mc-cta-end': '#166534'
+        },
+        ocean: {
+            '--mc-primary': '#1d4ed8',
+            '--mc-primary-strong': '#1e40af',
+            '--mc-accent': '#22d3ee',
+            '--mc-focus-ring': 'rgba(34, 211, 238, 0.45)',
+            '--mc-hero-start': '#1d4ed8',
+            '--mc-hero-mid': '#2563eb',
+            '--mc-hero-end': '#0f172a',
+            '--mc-cta-start': '#1e40af',
+            '--mc-cta-mid': '#1d4ed8',
+            '--mc-cta-end': '#0f172a'
+        },
+        sunset: {
+            '--mc-primary': '#ea580c',
+            '--mc-primary-strong': '#c2410c',
+            '--mc-accent': '#facc15',
+            '--mc-focus-ring': 'rgba(250, 204, 21, 0.45)',
+            '--mc-hero-start': '#ea580c',
+            '--mc-hero-mid': '#f97316',
+            '--mc-hero-end': '#7c2d12',
+            '--mc-cta-start': '#c2410c',
+            '--mc-cta-mid': '#ea580c',
+            '--mc-cta-end': '#7c2d12'
+        },
+        forest: {
+            '--mc-primary': '#15803d',
+            '--mc-primary-strong': '#166534',
+            '--mc-accent': '#84cc16',
+            '--mc-focus-ring': 'rgba(132, 204, 22, 0.45)',
+            '--mc-hero-start': '#15803d',
+            '--mc-hero-mid': '#166534',
+            '--mc-hero-end': '#14532d',
+            '--mc-cta-start': '#166534',
+            '--mc-cta-mid': '#15803d',
+            '--mc-cta-end': '#14532d'
+        },
+        mono: {
+            '--mc-primary': '#334155',
+            '--mc-primary-strong': '#1f2937',
+            '--mc-accent': '#94a3b8',
+            '--mc-focus-ring': 'rgba(148, 163, 184, 0.45)',
+            '--mc-hero-start': '#334155',
+            '--mc-hero-mid': '#475569',
+            '--mc-hero-end': '#0f172a',
+            '--mc-cta-start': '#1f2937',
+            '--mc-cta-mid': '#334155',
+            '--mc-cta-end': '#0f172a'
+        }
     };
 
     function sanitizeTenantCode(value) {
@@ -13,6 +79,21 @@
             .trim()
             .replace(/[^a-z0-9-]/g, '')
             .substring(0, 64);
+    }
+
+    function detectTenantCodeFromPath(pathname) {
+        const segments = String(pathname || '')
+            .split('/')
+            .map((part) => part.trim())
+            .filter(Boolean);
+
+        for (let i = 0; i < segments.length - 1; i += 1) {
+            if (segments[i].toLowerCase() !== 'b') continue;
+            const candidate = sanitizeTenantCode(segments[i + 1]);
+            if (candidate) return candidate;
+        }
+
+        return '';
     }
 
     function detectTenantCode() {
@@ -25,6 +106,16 @@
             }
         } catch (error) {
             // Ignore parsing/storage errors.
+        }
+
+        try {
+            const fromPath = detectTenantCodeFromPath(window.location.pathname || '');
+            if (fromPath) {
+                localStorage.setItem(TENANT_STORAGE_KEY, fromPath);
+                return fromPath;
+            }
+        } catch (error) {
+            // Ignore pathname/storage errors.
         }
 
         try {
@@ -77,8 +168,39 @@
         return filename.replace(/[^a-zA-Z0-9._-]/g, '');
     }
 
+    function normalizeBusinessName(value) {
+        const raw = String(value || '').trim();
+        if (!raw) return DEFAULT_INFO.business_name;
+
+        const cleaned = raw
+            // Remove private-use glyphs (often seen when icon fonts are persisted as text)
+            .replace(/^[\uE000-\uF8FF\s]+/u, '')
+            // Remove legacy baby-themed leading emoji prefixes.
+            .replace(/^(?:\u{1F476}|\u{1F37C}|\u{1F931}|\u{1F6BC}|\u{1F47C}|\u{1F9F8}|\s)+/u, '')
+            .trim();
+
+        return cleaned || DEFAULT_INFO.business_name;
+    }
+
+    function applyThemePalette(paletteName) {
+        const key = String(paletteName || 'default').toLowerCase();
+        const palette = PALETTES[key] || PALETTES.default;
+        const root = document.documentElement;
+
+        Object.keys(palette).forEach((cssVar) => {
+            root.style.setProperty(cssVar, palette[cssVar]);
+        });
+
+        document.body.setAttribute('data-theme-palette', key);
+    }
+
     function applyBusinessInfo(info) {
         const safeInfo = Object.assign({}, DEFAULT_INFO, info || {});
+        safeInfo.business_name = normalizeBusinessName(safeInfo.business_name);
+        safeInfo.theme_palette = String(safeInfo.theme_palette || 'default').toLowerCase();
+        safeInfo.hero_tagline = String(safeInfo.hero_tagline || DEFAULT_INFO.hero_tagline).trim() || DEFAULT_INFO.hero_tagline;
+        safeInfo.footer_note = String(safeInfo.footer_note || DEFAULT_INFO.footer_note).trim() || DEFAULT_INFO.footer_note;
+        applyThemePalette(safeInfo.theme_palette);
 
         document.querySelectorAll('[data-business-name]').forEach((el) => {
             el.textContent = safeInfo.business_name;
@@ -94,6 +216,14 @@
 
         document.querySelectorAll('[data-business-phone]').forEach((el) => {
             el.textContent = safeInfo.contact_number;
+        });
+
+        document.querySelectorAll('[data-business-hero-tagline]').forEach((el) => {
+            el.textContent = safeInfo.hero_tagline;
+        });
+
+        document.querySelectorAll('[data-business-footer-note]').forEach((el) => {
+            el.textContent = safeInfo.footer_note;
         });
 
         const sanitizedLogo = sanitizeFilename(safeInfo.logo_filename);

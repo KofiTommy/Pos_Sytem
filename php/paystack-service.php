@@ -233,11 +233,15 @@ function paystack_callback_url(?string $businessCode = null): string {
     $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
     $scriptName = $_SERVER['SCRIPT_NAME'] ?? '/possystem/php/paystack-init.php';
     $projectPath = rtrim(str_replace('\\', '/', dirname(dirname($scriptName))), '/');
-    $url = $scheme . '://' . $host . $projectPath . '/pages/cart.html?payment=paystack';
-    $safeCode = trim((string)$businessCode);
+    $safeCode = strtolower(trim((string)$businessCode));
+    $safeCode = preg_replace('/[^a-z0-9-]/', '', $safeCode);
+
     if ($safeCode !== '') {
-        $url .= '&tenant=' . rawurlencode($safeCode);
+        $url = $scheme . '://' . $host . $projectPath . '/b/' . rawurlencode($safeCode) . '/pages/cart.html?payment=paystack';
+    } else {
+        $url = $scheme . '://' . $host . $projectPath . '/pages/cart.html?payment=paystack';
     }
+
     return $url;
 }
 

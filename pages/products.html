@@ -16,7 +16,7 @@
         <div class="container">
             <a class="navbar-brand fw-bold" href="../index.html">
                 <img data-business-logo class="d-none me-1" style="height: 30px; width: auto;" alt="Business logo">
-                <i class="fas fa-baby"></i> <span data-business-name>Mother Care</span>
+                <span data-business-name>Mother Care</span>
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
@@ -128,6 +128,9 @@
                         </div>
                     </div>
                 </div>
+                <div class="text-center mt-2">
+                    <button id="loadMoreBtn" type="button" class="btn btn-outline-primary d-none">Load More Products</button>
+                </div>
             </div>
         </div>
     </div>
@@ -138,8 +141,8 @@
             <div class="row g-3">
                 <div class="col-md-4 mb-4">
                     <div class="footer-brand-card">
-                        <h5><i class="fas fa-baby me-2"></i><span data-business-name>Mother Care</span></h5>
-                        <p>Smart picks for daily baby care, with quality and comfort at the center of every product.</p>
+                        <h5><span data-business-name>Mother Care</span></h5>
+                        <p data-business-footer-note>Trusted essentials, safe choices, and a smooth shopping experience for every parent.</p>
                     </div>
                 </div>
                 <div class="col-md-4 mb-4">
@@ -177,18 +180,103 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="../js/business-info.js"></script>
-    <script src="../js/scripts.js?v=20260224-4"></script>
+    <script src="../js/business-info.js?v=20260227-4"></script>
+    <script src="../js/scripts.js?v=20260227-7"></script>
     <script>
-        // Load all products
-        function loadProducts() {
-            const container = document.getElementById('productsContainer');
+        const LAZY_IMG_PLACEHOLDER = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
+        const PAGE_SIZE = 6;
+        let currentOffset = 0;
+        let hasMoreProducts = true;
+        let loadingProducts = false;
 
-            fetch(withTenantQuery('../php/get-products.php?limit=24'))
+        function buildProductsApiUrl(limit, offset) {
+            const baseUrl = `../php/get-products.php?limit=${limit}&offset=${offset}`;
+            if (typeof withTenantQuery === 'function') {
+                return withTenantQuery(baseUrl);
+            }
+
+            try {
+                const normalizeTenantCode = (value) => String(value || '')
+                    .toLowerCase()
+                    .trim()
+                    .replace(/[^a-z0-9-]/g, '')
+                    .substring(0, 64);
+                const detectTenantCodeFromPath = (pathname) => {
+                    const segments = String(pathname || '')
+                        .split('/')
+                        .map((part) => part.trim())
+                        .filter(Boolean);
+                    for (let i = 0; i < segments.length - 1; i += 1) {
+                        if (segments[i].toLowerCase() !== 'b') continue;
+                        const candidate = normalizeTenantCode(segments[i + 1]);
+                        if (candidate) return candidate;
+                    }
+                    return '';
+                };
+                const params = new URLSearchParams(window.location.search || '');
+                let tenant = normalizeTenantCode(params.get('tenant') || params.get('business_code') || '');
+                if (!tenant) {
+                    tenant = detectTenantCodeFromPath(window.location.pathname || '');
+                }
+                if (!tenant) {
+                    tenant = normalizeTenantCode(localStorage.getItem('tenant_code') || '');
+                }
+                if (!tenant) return baseUrl;
+                if (/[?&](tenant|business_code)=/i.test(baseUrl)) return baseUrl;
+                return `${baseUrl}&tenant=${encodeURIComponent(tenant)}`;
+            } catch (error) {
+                return baseUrl;
+            }
+        }
+
+        function hydrateLazyImages() {
+            const lazyImages = document.querySelectorAll('img[data-src]');
+            if (!lazyImages.length) return;
+
+            if (!('IntersectionObserver' in window)) {
+                lazyImages.forEach((img) => {
+                    img.src = img.dataset.src;
+                    img.removeAttribute('data-src');
+                });
+                return;
+            }
+
+            const observer = new IntersectionObserver((entries, obs) => {
+                entries.forEach((entry) => {
+                    if (!entry.isIntersecting) return;
+                    const img = entry.target;
+                    const source = img.getAttribute('data-src');
+                    if (source) {
+                        img.src = source;
+                        img.removeAttribute('data-src');
+                    }
+                    obs.unobserve(img);
+                });
+            }, { rootMargin: '180px 0px' });
+
+            lazyImages.forEach((img) => observer.observe(img));
+        }
+
+        // Load products incrementally for faster first render.
+        function loadProducts(reset = false) {
+            if (loadingProducts) return;
+            if (!hasMoreProducts && !reset) return;
+
+            loadingProducts = true;
+            const container = document.getElementById('productsContainer');
+            const loadMoreBtn = document.getElementById('loadMoreBtn');
+
+            if (reset) {
+                currentOffset = 0;
+                hasMoreProducts = true;
+                container.innerHTML = '';
+                loadMoreBtn.classList.add('d-none');
+            }
+
+            const requestUrl = buildProductsApiUrl(PAGE_SIZE, currentOffset);
+            fetch(requestUrl)
                 .then(response => response.json())
                 .then(data => {
-                    container.innerHTML = '';
-
                     if (data.success && data.products.length > 0) {
                         const cards = data.products.map((product) => {
                             const productId = Number(product.id || 0);
@@ -198,14 +286,14 @@
                             const productNameRaw = String(product.name || '');
                             const productName = escapeHtml(productNameRaw);
                             const productDescription = escapeHtml(String(product.description || ''));
-                            const productImage = sanitizeImageFilename(product.image || '');
+                            const productImage = sanitizeImageFilename(product.image || '') || 'pexels-jonathan-nenemann-12114822.jpg';
                             const productNameAttr = escapeHtml(productNameRaw);
                             const productImageAttr = escapeHtml(productImage);
 
                             return `
                                 <div class="col-md-6 col-lg-4 mb-4 product-item" data-category="${productCategory}" data-price="${productPrice}">
                                     <div class="card product-card product-card-clickable" role="button" tabindex="0" aria-label="Add ${productName} to cart" data-product-id="${productId}" data-product-name="${productNameAttr}" data-product-price="${productPrice}" data-product-image="${productImageAttr}" onclick="addToCartFromElement(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();addToCartFromElement(this);}">
-                                        <img src="../assets/images/${productImage}" class="card-img-top" alt="${productName}" loading="lazy" decoding="async">
+                                        <img src="${LAZY_IMG_PLACEHOLDER}" data-src="../assets/images/${productImage}" class="card-img-top" alt="${productName}" loading="lazy" decoding="async">
                                         <div class="card-body">
                                             <h5 class="card-title">${productName}</h5>
                                             <p class="card-text text-muted text-truncate">${productDescription}</p>
@@ -224,14 +312,33 @@
                                 </div>
                             `;
                         });
-                        container.innerHTML = cards.join('');
+                        container.insertAdjacentHTML('beforeend', cards.join(''));
+                        hydrateLazyImages();
+
+                        currentOffset += data.products.length;
+                        hasMoreProducts = data.products.length === PAGE_SIZE;
+                        if (hasMoreProducts) {
+                            loadMoreBtn.classList.remove('d-none');
+                        } else {
+                            loadMoreBtn.classList.add('d-none');
+                        }
                     } else {
-                        container.innerHTML = '<div class="col-12"><p class="text-center text-muted">No products available.</p></div>';
+                        if (reset) {
+                            container.innerHTML = '<div class="col-12"><p class="text-center text-muted">No products available.</p></div>';
+                        }
+                        hasMoreProducts = false;
+                        loadMoreBtn.classList.add('d-none');
                     }
                 })
                 .catch(error => {
                     console.error('Error loading products:', error);
-                    container.innerHTML = '<div class="col-12"><p class="text-center text-danger">Error loading products.</p></div>';
+                    if (reset) {
+                        container.innerHTML = '<div class="col-12"><p class="text-center text-danger">Error loading products.</p></div>';
+                    }
+                    loadMoreBtn.classList.add('d-none');
+                })
+                .finally(() => {
+                    loadingProducts = false;
                 });
         }
 
@@ -281,8 +388,16 @@
 
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', function () {
-            updateCartCount();
-            loadProducts();
+            if (typeof updateCartCount === 'function') {
+                updateCartCount();
+            }
+            loadProducts(true);
+            const loadMoreBtn = document.getElementById('loadMoreBtn');
+            if (loadMoreBtn) {
+                loadMoreBtn.addEventListener('click', function () {
+                    loadProducts(false);
+                });
+            }
         });
     </script>
 </body>

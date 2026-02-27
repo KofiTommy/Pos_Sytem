@@ -124,7 +124,8 @@ try {
             'business_id' => $businessId,
             'business_code' => $businessCode,
             'owner_user_id' => $ownerUserId,
-            'login_url' => '../pages/login.html?tenant=' . rawurlencode($businessCode)
+            'storefront_url' => '../b/' . rawurlencode($businessCode) . '/',
+            'login_url' => '../b/' . rawurlencode($businessCode) . '/pages/login.html'
         ], 201);
     } catch (Exception $e) {
         $conn->rollback();

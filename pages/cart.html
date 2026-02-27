@@ -16,7 +16,7 @@
         <div class="container">
             <a class="navbar-brand fw-bold" href="../index.html">
                 <img data-business-logo class="d-none me-1" style="height: 30px; width: auto;" alt="Business logo">
-                <i class="fas fa-baby"></i> <span data-business-name>Mother Care</span>
+                <span data-business-name>Mother Care</span>
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
@@ -109,8 +109,8 @@
             <div class="row g-3">
                 <div class="col-md-4 mb-4">
                     <div class="footer-brand-card">
-                        <h5><i class="fas fa-baby me-2"></i><span data-business-name>Mother Care</span></h5>
-                        <p>From cart to checkout, we keep your order flow clean, fast, and stress-free for busy parents.</p>
+                        <h5><span data-business-name>Mother Care</span></h5>
+                        <p data-business-footer-note>Trusted essentials, safe choices, and a smooth shopping experience for every parent.</p>
                     </div>
                 </div>
                 <div class="col-md-4 mb-4">
@@ -225,8 +225,8 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="../js/business-info.js"></script>
-    <script src="../js/scripts.js?v=20260224-4"></script>
+    <script src="../js/business-info.js?v=20260227-4"></script>
+    <script src="../js/scripts.js?v=20260227-7"></script>
     <script>
         // Display cart items
         function displayCart() {
@@ -264,7 +264,7 @@
                     <tr>
                         <td>
                             <div class="d-flex align-items-center">
-                                <img src="../assets/images/${itemImage}" class="product-thumb" alt="${itemName}">
+                                <img src="../assets/images/${itemImage || 'pexels-jonathan-nenemann-12114822.jpg'}" class="product-thumb" alt="${itemName}">
                                 <span>${itemName}</span>
                             </div>
                         </td>
@@ -337,9 +337,12 @@
                     throw new Error(data.message || 'Could not verify payment.');
                 }
 
-                localStorage.removeItem('cart');
-                cart = [];
-                updateCartCount();
+                if (typeof clearCartState === 'function') {
+                    clearCartState();
+                } else {
+                    cart = [];
+                    updateCartCount();
+                }
                 displayCart();
                 showNotification('Payment successful. Order ID: ' + data.order_id);
             } catch (error) {
@@ -405,9 +408,12 @@
                 .then(data => {
                     if (data.success) {
                         showNotification('Order placed successfully! Order ID: ' + data.order_id);
-                        localStorage.removeItem('cart');
-                        cart = [];
-                        updateCartCount();
+                        if (typeof clearCartState === 'function') {
+                            clearCartState();
+                        } else {
+                            cart = [];
+                            updateCartCount();
+                        }
                         displayCart();
 
                         const checkoutModal = bootstrap.Modal.getInstance(document.getElementById('checkoutModal'));

@@ -1,6 +1,6 @@
 <?php
 header('Content-Type: application/json');
-header('Cache-Control: private, max-age=60');
+header('Cache-Control: private, max-age=180');
 include 'db-connection.php';
 include 'tenant-context.php';
 
@@ -24,6 +24,7 @@ try {
     }
 
     $limit = isset($_GET['limit']) ? intval($_GET['limit']) : 24;
+    $offset = isset($_GET['offset']) ? intval($_GET['offset']) : 0;
     $featured = isset($_GET['featured']) ? 1 : 0;
     if ($limit <= 0) {
         $limit = 24;
@@ -31,23 +32,29 @@ try {
     if ($limit > 200) {
         $limit = 200;
     }
+    if ($offset < 0) {
+        $offset = 0;
+    }
+    if ($offset > 5000) {
+        $offset = 5000;
+    }
 
     if ($featured) {
         $sql = "SELECT id, name, description, price, category, image, stock, featured, created_at
                 FROM products
                 WHERE business_id = ? AND featured = 1
-                ORDER BY created_at DESC
-                LIMIT ?";
+                ORDER BY created_at DESC, id DESC
+                LIMIT ?, ?";
         $stmt = $conn->prepare($sql);
-        $stmt->bind_param('ii', $businessId, $limit);
+        $stmt->bind_param('iii', $businessId, $offset, $limit);
     } else {
         $sql = "SELECT id, name, description, price, category, image, stock, featured, created_at
                 FROM products
                 WHERE business_id = ?
-                ORDER BY created_at DESC
-                LIMIT ?";
+                ORDER BY created_at DESC, id DESC
+                LIMIT ?, ?";
         $stmt = $conn->prepare($sql);
-        $stmt->bind_param('ii', $businessId, $limit);
+        $stmt->bind_param('iii', $businessId, $offset, $limit);
     }
 
     $stmt->execute();

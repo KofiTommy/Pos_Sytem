@@ -1,20 +1,3 @@
-// Initialize cart from localStorage (guard against invalid/stale data)
-let cart = [];
-try {
-    const storedCart = localStorage.getItem('cart');
-    if (storedCart) {
-        const parsedCart = JSON.parse(storedCart);
-        cart = Array.isArray(parsedCart) ? parsedCart : [];
-    }
-} catch (error) {
-    cart = [];
-    try {
-        localStorage.removeItem('cart');
-    } catch (storageError) {
-        // Ignore storage cleanup failures.
-    }
-}
-
 const TENANT_STORAGE_KEY = 'tenant_code';
 
 function sanitizeTenantCode(value) {
@@ -23,6 +6,21 @@ function sanitizeTenantCode(value) {
         .trim()
         .replace(/[^a-z0-9-]/g, '')
         .substring(0, 64);
+}
+
+function detectTenantCodeFromPath(pathname) {
+    const segments = String(pathname || '')
+        .split('/')
+        .map((part) => part.trim())
+        .filter(Boolean);
+
+    for (let i = 0; i < segments.length - 1; i += 1) {
+        if (segments[i].toLowerCase() !== 'b') continue;
+        const candidate = sanitizeTenantCode(segments[i + 1]);
+        if (candidate) return candidate;
+    }
+
+    return '';
 }
 
 function detectTenantCode() {
@@ -38,6 +36,16 @@ function detectTenantCode() {
     }
 
     try {
+        const fromPath = detectTenantCodeFromPath(window.location.pathname || '');
+        if (fromPath) {
+            localStorage.setItem(TENANT_STORAGE_KEY, fromPath);
+            return fromPath;
+        }
+    } catch (error) {
+        // Ignore pathname parsing/storage issues.
+    }
+
+    try {
         return sanitizeTenantCode(localStorage.getItem(TENANT_STORAGE_KEY) || '');
     } catch (error) {
         return '';
@@ -45,6 +53,38 @@ function detectTenantCode() {
 }
 
 const activeTenantCode = detectTenantCode();
+const CART_STORAGE_KEY_PREFIX = 'cart';
+const LEGACY_CART_STORAGE_KEY = 'cart';
+
+function resolveCartStorageKey(tenantCode = activeTenantCode) {
+    const safeTenantCode = sanitizeTenantCode(tenantCode || '');
+    if (safeTenantCode) {
+        return `${CART_STORAGE_KEY_PREFIX}:${safeTenantCode}`;
+    }
+    return `${CART_STORAGE_KEY_PREFIX}:default`;
+}
+
+const cartStorageKey = resolveCartStorageKey();
+
+// Initialize cart from tenant-scoped localStorage.
+let cart = [];
+try {
+    const storedCart = localStorage.getItem(cartStorageKey);
+    if (storedCart) {
+        const parsedCart = JSON.parse(storedCart);
+        cart = Array.isArray(parsedCart) ? parsedCart : [];
+    }
+    // Clean up legacy shared cart key so carts can no longer leak across tenants.
+    localStorage.removeItem(LEGACY_CART_STORAGE_KEY);
+} catch (error) {
+    cart = [];
+    try {
+        localStorage.removeItem(cartStorageKey);
+        localStorage.removeItem(LEGACY_CART_STORAGE_KEY);
+    } catch (storageError) {
+        // Ignore storage cleanup failures.
+    }
+}
 
 function withTenantQuery(url) {
     if (!activeTenantCode) return url;
@@ -82,6 +122,9 @@ function propagateTenantToLinks() {
         if (/^https?:\/\//i.test(href) && !href.includes(window.location.host)) {
             return;
         }
+        if (/^\/?b\/[a-z0-9-]+(?:\/|$)/i.test(href)) {
+            return;
+        }
         if (/[?&](tenant|business_code)=/i.test(href)) {
             return;
         }
@@ -93,6 +136,7 @@ window.withTenantQuery = withTenantQuery;
 window.appendTenantToFormData = appendTenantToFormData;
 window.withTenantPayload = withTenantPayload;
 window.activeTenantCode = activeTenantCode;
+window.cartStorageKey = cartStorageKey;
 
 function escapeHtml(value) {
     return String(value ?? '')
@@ -118,13 +162,25 @@ function addToCartFromElement(element) {
 
 function persistCart() {
     try {
-        localStorage.setItem('cart', JSON.stringify(cart));
+        localStorage.setItem(cartStorageKey, JSON.stringify(cart));
         return true;
     } catch (error) {
         showError('Unable to save cart on this browser session.');
         return false;
     }
 }
+
+function clearCartState() {
+    cart = [];
+    try {
+        localStorage.removeItem(cartStorageKey);
+    } catch (error) {
+        // Ignore storage cleanup failures.
+    }
+    updateCartCount();
+}
+
+window.clearCartState = clearCartState;
 
 // Update cart count
 function updateCartCount() {
@@ -284,7 +340,7 @@ function loadFeaturedProducts() {
                     const productNameRaw = String(product.name || '');
                     const productName = escapeHtml(productNameRaw);
                     const productPrice = Number(product.price || 0);
-                    const productImage = sanitizeImageFilename(product.image || '');
+                    const productImage = sanitizeImageFilename(product.image || '') || 'pexels-jonathan-nenemann-12114822.jpg';
                     const productDescription = escapeHtml(String(product.description || '').substring(0, 60));
                     const productStock = Number(product.stock || 0);
                     const productNameAttr = escapeHtml(productNameRaw);
