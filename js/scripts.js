@@ -374,16 +374,19 @@ function loadFeaturedProducts() {
     const featuredProductsDiv = document.getElementById('featuredProducts');
     if (!featuredProductsDiv) return;
 
+    const showDefaultSolutions = () => renderDefaultFeaturedSolutions(featuredProductsDiv);
+
     if (!activeTenantCode) {
-        renderDefaultFeaturedSolutions(featuredProductsDiv);
+        showDefaultSolutions();
         return;
     }
+
+    // Render fallback cards immediately while tenant products are loading.
+    showDefaultSolutions();
 
     fetch(withTenantQuery('php/get-products.php?limit=3&featured=1'))
         .then((response) => response.json())
         .then((data) => {
-            featuredProductsDiv.innerHTML = '';
-
             if (data.success && data.products.length > 0) {
                 const cards = data.products.map((product) => {
                     const productId = Number(product.id || 0);
@@ -416,13 +419,11 @@ function loadFeaturedProducts() {
                     `;
                 });
                 featuredProductsDiv.innerHTML = cards.join('');
-            } else {
-                featuredProductsDiv.innerHTML = '<div class="col-12"><p class="text-center text-muted">No featured products available.</p></div>';
             }
         })
         .catch((error) => {
             console.error('Error loading products:', error);
-            featuredProductsDiv.innerHTML = '<div class="col-12"><p class="text-center text-danger">Error loading products.</p></div>';
+            showDefaultSolutions();
         });
 }
 
