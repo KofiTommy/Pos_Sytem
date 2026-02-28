@@ -5,6 +5,18 @@ require_roles_api(['owner', 'sales']);
 include 'db-connection.php';
 include 'tenant-context.php';
 
+function safe_text($value, $maxLength = 255) {
+    $text = trim((string)$value);
+    if ($maxLength > 0) {
+        $text = mb_substr($text, 0, $maxLength);
+    }
+    return $text;
+}
+
+function safe_image_name($value) {
+    return preg_replace('/[^a-zA-Z0-9._-]/', '', (string)$value);
+}
+
 try {
     ensure_multitenant_schema($conn);
     $businessId = current_business_id();
@@ -61,8 +73,15 @@ try {
         $imageName = $row['image'] ?? '';
 
         if ($imageName !== '' && isset($imageMap[$imageName])) {
-            $row['image'] = $imageMap[$imageName];
+            $imageName = $imageMap[$imageName];
         }
+
+        $row['id'] = intval($row['id'] ?? 0);
+        $row['name'] = safe_text($row['name'] ?? '', 200);
+        $row['category'] = safe_text($row['category'] ?? '', 100);
+        $row['image'] = safe_image_name($imageName);
+        $row['price'] = round(floatval($row['price'] ?? 0), 2);
+        $row['stock'] = intval($row['stock'] ?? 0);
 
         $products[] = $row;
     }
@@ -72,9 +91,11 @@ try {
         'products' => $products
     ]);
 } catch (Exception $e) {
+    error_log('pos-products.php: ' . $e->getMessage());
+    http_response_code(500);
     echo json_encode([
         'success' => false,
-        'message' => $e->getMessage()
+        'message' => 'Unable to load products right now.'
     ]);
 }
 

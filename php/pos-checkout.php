@@ -7,6 +7,14 @@ include 'payment-schema.php';
 include 'staff-tracking-schema.php';
 include 'tenant-context.php';
 
+function clean_text_input($value, $maxLen = 255) {
+    $text = trim(strip_tags((string)$value));
+    if (strlen($text) > $maxLen) {
+        $text = substr($text, 0, $maxLen);
+    }
+    return $text;
+}
+
 try {
     ensure_payment_schema($conn);
     ensure_staff_tracking_schema($conn);
@@ -26,15 +34,15 @@ try {
         $payload = $_POST;
     }
 
-    $customerName = isset($payload['customer_name']) ? trim($payload['customer_name']) : 'Walk-in Customer';
+    $customerName = clean_text_input($payload['customer_name'] ?? 'Walk-in Customer', 200);
     if ($customerName === '') {
         $customerName = 'Walk-in Customer';
     }
 
-    $customerEmail = isset($payload['customer_email']) ? trim($payload['customer_email']) : 'pos@mothercare.local';
-    $customerPhone = isset($payload['customer_phone']) ? trim($payload['customer_phone']) : 'N/A';
-    $notes = isset($payload['notes']) ? trim($payload['notes']) : '';
-    $paymentMethod = isset($payload['payment_method']) ? trim($payload['payment_method']) : 'cash';
+    $customerEmail = clean_text_input($payload['customer_email'] ?? 'pos@mothercare.local', 160);
+    $customerPhone = clean_text_input($payload['customer_phone'] ?? 'N/A', 40);
+    $notes = clean_text_input($payload['notes'] ?? '', 1000);
+    $paymentMethod = strtolower(clean_text_input($payload['payment_method'] ?? 'cash', 40));
     $cashReceived = isset($payload['cash_received']) ? floatval($payload['cash_received']) : 0;
     $taxRate = isset($payload['tax_rate']) ? floatval($payload['tax_rate']) : 10;
     $discountAmount = isset($payload['discount_amount']) ? floatval($payload['discount_amount']) : 0;
@@ -188,9 +196,11 @@ try {
         throw $e;
     }
 } catch (Exception $e) {
+    error_log('pos-checkout.php: ' . $e->getMessage());
+    http_response_code(400);
     echo json_encode([
         'success' => false,
-        'message' => $e->getMessage()
+        'message' => 'Unable to complete sale. Please try again.'
     ]);
 }
 

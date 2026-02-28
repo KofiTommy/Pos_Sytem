@@ -213,28 +213,41 @@ $isOwner = $currentRole === 'owner';
                 return;
             }
 
-            rows.innerHTML = data.sales.map((sale) => `
-                <tr>
-                    <td>#${sale.id}</td>
-                    <td>${sale.customer_name}</td>
-                    <td>${sale.item_count}</td>
-                    <td>${asMoney(sale.total)}</td>
-                    <td><span class="badge ${sale.status === 'paid' ? 'bg-success' : 'bg-secondary'}">${sale.status}</span></td>
-                    <td><span class="badge bg-info text-dark">${sale.staff_username || 'Unassigned'}</span></td>
-                    <td><span class="badge ${sale.payment_status === 'paid' ? 'bg-success' : 'bg-warning text-dark'}">${(sale.payment_method || 'cod')} / ${(sale.payment_status || 'unpaid')}</span></td>
-                    <td>${sale.created_at}</td>
-                    <td>
-                        <div class="d-flex flex-wrap gap-1">
-                            <button class="btn btn-sm btn-outline-primary" onclick="openSale(${sale.id})">View</button>
-                            ${sale.status === 'pending'
-                                ? `<button class="btn btn-sm btn-success" onclick="confirmSale(${sale.id})">Confirm</button>`
-                                : ''}
-                            <button class="btn btn-sm btn-outline-secondary" onclick="openEditSale(${sale.id})">Edit</button>
-                            ${canDeleteSales ? `<button class="btn btn-sm btn-outline-danger" onclick="deleteSale(${sale.id})">Delete</button>` : ''}
-                        </div>
-                    </td>
-                </tr>
-            `).join('');
+            rows.innerHTML = data.sales.map((sale) => {
+                const saleId = Number(sale.id || 0);
+                const safeCustomer = escapeHtml(sale.customer_name || '');
+                const itemCount = Number(sale.item_count || 0);
+                const safeStatus = escapeHtml(sale.status || 'pending');
+                const safeStaff = escapeHtml(sale.staff_username || 'Unassigned');
+                const safePaymentMethod = escapeHtml(sale.payment_method || 'cod');
+                const safePaymentStatus = escapeHtml(sale.payment_status || 'unpaid');
+                const safeCreatedAt = escapeHtml(sale.created_at || '');
+                const statusClass = String(sale.status || '') === 'paid' ? 'bg-success' : 'bg-secondary';
+                const paymentClass = String(sale.payment_status || '') === 'paid' ? 'bg-success' : 'bg-warning text-dark';
+
+                return `
+                    <tr>
+                        <td>#${saleId}</td>
+                        <td>${safeCustomer}</td>
+                        <td>${itemCount}</td>
+                        <td>${asMoney(sale.total)}</td>
+                        <td><span class="badge ${statusClass}">${safeStatus}</span></td>
+                        <td><span class="badge bg-info text-dark">${safeStaff}</span></td>
+                        <td><span class="badge ${paymentClass}">${safePaymentMethod} / ${safePaymentStatus}</span></td>
+                        <td>${safeCreatedAt}</td>
+                        <td>
+                            <div class="d-flex flex-wrap gap-1">
+                                <button class="btn btn-sm btn-outline-primary" onclick="openSale(${saleId})">View</button>
+                                ${String(sale.status || '') === 'pending'
+                                    ? `<button class="btn btn-sm btn-success" onclick="confirmSale(${saleId})">Confirm</button>`
+                                    : ''}
+                                <button class="btn btn-sm btn-outline-secondary" onclick="openEditSale(${saleId})">Edit</button>
+                                ${canDeleteSales ? `<button class="btn btn-sm btn-outline-danger" onclick="deleteSale(${saleId})">Delete</button>` : ''}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
         }
 
         async function openSale(orderId) {
@@ -245,23 +258,38 @@ $isOwner = $currentRole === 'owner';
                 return;
             }
 
-            const itemsHtml = data.items.map((item) => `
-                <tr>
-                    <td>${item.product_name || ('#' + item.product_id)}</td>
-                    <td>${item.quantity}</td>
-                    <td>${asMoney(item.price)}</td>
-                    <td>${asMoney(item.price * item.quantity)}</td>
-                </tr>
-            `).join('');
+            const itemsHtml = data.items.map((item) => {
+                const safeName = escapeHtml(item.product_name || ('#' + item.product_id));
+                const quantity = Number(item.quantity || 0);
+                const price = Number(item.price || 0);
+                return `
+                    <tr>
+                        <td>${safeName}</td>
+                        <td>${quantity}</td>
+                        <td>${asMoney(price)}</td>
+                        <td>${asMoney(price * quantity)}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            const safeOrderId = Number(data.order.id || 0);
+            const safeCustomer = escapeHtml(data.order.customer_name || '');
+            const safeStatus = escapeHtml(data.order.status || '');
+            const safeStaff = escapeHtml(data.order.staff_username || 'Unassigned');
+            const safeStaffId = Number(data.order.staff_user_id || 0);
+            const safePaymentMethod = escapeHtml(data.order.payment_method || 'cod');
+            const safePaymentStatus = escapeHtml(data.order.payment_status || 'unpaid');
+            const safePaymentRef = escapeHtml(data.order.payment_reference || '-');
+            const safeCreatedAt = escapeHtml(data.order.created_at || '');
 
             document.getElementById('saleDetailBody').innerHTML = `
-                <p><strong>Order #:</strong> ${data.order.id}</p>
-                <p><strong>Customer:</strong> ${data.order.customer_name}</p>
-                <p><strong>Status:</strong> ${data.order.status}</p>
-                <p><strong>Staff:</strong> ${data.order.staff_username || 'Unassigned'}${data.order.staff_user_id ? ' (#' + data.order.staff_user_id + ')' : ''}</p>
-                <p><strong>Payment:</strong> ${data.order.payment_method || 'cod'} / ${data.order.payment_status || 'unpaid'}</p>
-                <p><strong>Reference:</strong> ${data.order.payment_reference || '-'}</p>
-                <p><strong>Created:</strong> ${data.order.created_at}</p>
+                <p><strong>Order #:</strong> ${safeOrderId}</p>
+                <p><strong>Customer:</strong> ${safeCustomer}</p>
+                <p><strong>Status:</strong> ${safeStatus}</p>
+                <p><strong>Staff:</strong> ${safeStaff}${safeStaffId > 0 ? ' (#' + safeStaffId + ')' : ''}</p>
+                <p><strong>Payment:</strong> ${safePaymentMethod} / ${safePaymentStatus}</p>
+                <p><strong>Reference:</strong> ${safePaymentRef}</p>
+                <p><strong>Created:</strong> ${safeCreatedAt}</p>
                 <table class="table table-sm">
                     <thead>
                         <tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th></tr>
@@ -274,7 +302,7 @@ $isOwner = $currentRole === 'owner';
                     <p class="mb-0"><strong>Total:</strong> ${asMoney(data.order.total)}</p>
                 </div>
                 <div class="mt-3 text-end">
-                    <button class="btn btn-sm btn-outline-success" onclick="printSaleReceipt(${data.order.id})">
+                    <button class="btn btn-sm btn-outline-success" onclick="printSaleReceipt(${safeOrderId})">
                         <i class="fas fa-print"></i> Print Receipt
                     </button>
                 </div>
@@ -306,13 +334,14 @@ $isOwner = $currentRole === 'owner';
                         <td style="text-align:right;">${asMoney(item.price * item.quantity)}</td>
                     </tr>
                 `).join('');
+                const receiptOrderId = Number(data.order.id || 0);
 
                 const receiptHtml = `
                     <!doctype html>
                     <html>
                     <head>
                         <meta charset="utf-8">
-                        <title>Receipt #${data.order.id}</title>
+                        <title>Receipt #${receiptOrderId}</title>
                         <style>
                             body { font-family: 'Courier New', monospace; margin: 0; padding: 16px; color: #111; }
                             .receipt { max-width: 360px; margin: 0 auto; border: 1px dashed #999; padding: 14px; }
@@ -334,7 +363,7 @@ $isOwner = $currentRole === 'owner';
                                 <h2>${escapeHtml(businessInfo.business_name)}</h2>
                                 <p class="muted">Customer Receipt</p>
                                 <p class="muted">${escapeHtml(businessInfo.contact_number)} | ${escapeHtml(businessInfo.business_email)}</p>
-                                <p class="muted">Order #${data.order.id}</p>
+                                <p class="muted">Order #${receiptOrderId}</p>
                                 <p class="muted">${escapeHtml(data.order.created_at)}</p>
                             </div>
                             <hr>

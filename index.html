@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title data-business-title>Mother Care - Premium Baby Products</title>
+    <title data-business-title>CediTill - Universal POS Service</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/style.css">
@@ -129,17 +129,63 @@
             color: #8ec5ff;
         }
 
+        .ceditill-brand-mark {
+            width: 34px;
+            height: 34px;
+            border-radius: 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 0.55rem;
+            color: #fff;
+            background: linear-gradient(135deg, #0f766e, #0c5f89);
+            box-shadow: 0 8px 16px rgba(12, 95, 137, 0.24);
+            font-size: 0.95rem;
+        }
+
+        .hero-eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            padding: 0.36rem 0.7rem;
+            border-radius: 999px;
+            font-size: 0.82rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            background: rgba(255, 255, 255, 0.16);
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            color: #fff;
+            margin-bottom: 1rem;
+        }
+
         @keyframes heroFloat {
-            0%, 100% { transform: translateY(0) translateX(0); }
-            50% { transform: translateY(-14px) translateX(8px); }
+
+            0%,
+            100% {
+                transform: translateY(0) translateX(0);
+            }
+
+            50% {
+                transform: translateY(-14px) translateX(8px);
+            }
         }
 
         @keyframes ctaPulse {
-            0%, 100% { transform: scale(1); box-shadow: 0 0 0 rgba(255, 255, 255, 0); }
-            50% { transform: scale(1.03); box-shadow: 0 0 0 8px rgba(255, 255, 255, 0.08); }
+
+            0%,
+            100% {
+                transform: scale(1);
+                box-shadow: 0 0 0 rgba(255, 255, 255, 0);
+            }
+
+            50% {
+                transform: scale(1.03);
+                box-shadow: 0 0 0 8px rgba(255, 255, 255, 0.08);
+            }
         }
 
         @media (prefers-reduced-motion: reduce) {
+
             .hero-orb,
             .cta-section .btn,
             .reveal-up {
@@ -157,8 +203,11 @@
     <nav class="navbar navbar-expand-lg navbar-light bg-light shadow-sm sticky-top">
         <div class="container">
             <a class="navbar-brand fw-bold" href="index.html">
+                <span class="ceditill-brand-mark" aria-hidden="true">
+                    <i class="fas fa-cash-register"></i>
+                </span>
                 <img data-business-logo class="d-none me-1" style="height: 30px; width: auto;" alt="Business logo">
-                <span data-business-name>Mother Care</span>
+                <span data-business-name>CediTill</span>
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
@@ -178,7 +227,8 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link btn btn-sm btn-primary text-white ms-2" href="pages/login.html" data-admin-link>
+                        <a class="nav-link btn btn-sm btn-primary text-white ms-2" href="pages/login.html"
+                            data-admin-link>
                             <i class="fas fa-sign-in-alt"></i> Staff Login
                         </a>
                     </li>
@@ -195,10 +245,16 @@
         <div class="container h-100">
             <div class="row h-100 align-items-center">
                 <div class="col-lg-6 text-center text-lg-start">
-                    <h1 class="display-4 fw-bold mb-4 text-white">Welcome to <span data-business-name>Mother Care</span></h1>
-                    <p class="lead mb-4 text-white" data-business-hero-tagline>Premium baby care products for your little ones. Quality you can trust.</p>
+                    <div class="hero-eyebrow">
+                        <i class="fas fa-layer-group"></i>
+                        Universal POS Platform
+                    </div>
+                    <h1 class="display-4 fw-bold mb-4 text-white">Welcome to <span data-business-name>CediTill</span>
+                    </h1>
+                    <p class="lead mb-4 text-white" data-business-hero-tagline>Universal POS tools to manage sales,
+                        inventory, and customers with confidence.</p>
                     <a href="pages/products.html" class="btn btn-primary btn-lg me-3">
-                        <i class="fas fa-shopping-bag"></i> Shop Now
+                        <i class="fas fa-store"></i> Explore Solutions
                     </a>
                     <a href="#featured" class="btn btn-outline-light btn-lg">
                         <i class="fas fa-arrow-down"></i> View Featured
@@ -211,7 +267,7 @@
     <!-- Featured Products Section -->
     <section id="featured" class="py-5 bg-light">
         <div class="container reveal-up">
-            <h2 class="text-center mb-5 fw-bold">Featured Products</h2>
+            <h2 class="text-center mb-5 fw-bold">Featured POS Solutions</h2>
             <div class="row" id="featuredProducts">
                 <div class="col-md-4 mb-4">
                     <div class="placeholder-glow">
@@ -250,28 +306,28 @@
     <!-- Why Choose Us Section -->
     <section class="py-5">
         <div class="container reveal-up">
-            <h2 class="text-center mb-5 fw-bold">Why Choose <span data-business-name>Mother Care</span>?</h2>
+            <h2 class="text-center mb-5 fw-bold">Why Choose <span data-business-name>CediTill</span>?</h2>
             <div class="row">
                 <div class="col-md-4 text-center mb-4">
                     <div class="feature-icon">
-                        <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                        <i class="fas fa-bolt fa-3x text-success mb-3"></i>
                     </div>
-                    <h5>Premium Quality</h5>
-                    <p>All products are carefully selected and tested for safety and quality.</p>
+                    <h5>Fast Checkout</h5>
+                    <p>Serve customers faster with streamlined billing, barcode scan flow, and instant receipts.</p>
                 </div>
                 <div class="col-md-4 text-center mb-4">
                     <div class="feature-icon">
-                        <i class="fas fa-truck fa-3x text-primary mb-3"></i>
+                        <i class="fas fa-boxes-stacked fa-3x text-primary mb-3"></i>
                     </div>
-                    <h5>Fast Delivery</h5>
-                    <p>Quick and reliable delivery to your doorstep within 24-48 hours.</p>
+                    <h5>Inventory Control</h5>
+                    <p>Track stock in real time, get low-stock alerts, and avoid missed sales or overstock losses.</p>
                 </div>
                 <div class="col-md-4 text-center mb-4">
                     <div class="feature-icon">
-                        <i class="fas fa-headset fa-3x text-info mb-3"></i>
+                        <i class="fas fa-chart-line fa-3x text-info mb-3"></i>
                     </div>
-                    <h5>Expert Support</h5>
-                    <p>Our team is ready to help you with product recommendations and questions.</p>
+                    <h5>Sales Insights</h5>
+                    <p>Use live reports to see trends, top performers, and decisions that grow daily revenue.</p>
                 </div>
             </div>
         </div>
@@ -280,10 +336,11 @@
     <!-- CTA Section -->
     <section class="cta-section">
         <div class="container text-center text-white reveal-up">
-            <h2 class="mb-4">Ready to Shop?</h2>
-            <p class="lead mb-4">Browse our complete collection of premium mother care products</p>
+            <h2 class="mb-4">Ready to Grow Your Business?</h2>
+            <p class="lead mb-4">Power your store with faster checkout, smarter inventory, and better sales visibility.
+            </p>
             <a href="pages/products.html" class="btn btn-light btn-lg">
-                <i class="fas fa-shopping-bag"></i> Start Shopping
+                <i class="fas fa-rocket"></i> Launch with CediTill
             </a>
         </div>
     </section>
@@ -294,8 +351,9 @@
             <div class="row g-3">
                 <div class="col-md-4 mb-4">
                     <div class="footer-panel">
-                        <h5 class="footer-title"><span data-business-name>Mother Care</span></h5>
-                        <p class="mb-0 text-white-50" data-business-footer-note>Trusted essentials, safe choices, and a smooth shopping experience for every parent.</p>
+                        <h5 class="footer-title"><span data-business-name>CediTill</span></h5>
+                        <p class="mb-0 text-white-50" data-business-footer-note>CediTill helps businesses run faster
+                            checkout, smarter stock control, and clear daily sales insights.</p>
                     </div>
                 </div>
                 <div class="col-md-4 mb-4">
@@ -314,25 +372,25 @@
                         <h5 class="footer-title">Contact Info</h5>
                         <div class="footer-contact-line">
                             <i class="fas fa-phone"></i>
-                            <span data-business-phone>+233 000 000 000</span>
+                            <span data-business-phone>+233 245 067 195</span>
                         </div>
                         <div class="footer-contact-line mb-0">
                             <i class="fas fa-envelope"></i>
-                            <span data-business-email>info@mothercare.com</span>
+                            <span data-business-email>info@ceditill.com</span>
                         </div>
                     </div>
                 </div>
             </div>
             <hr class="bg-white-50 opacity-50">
             <div class="text-center text-white-50">
-                <p>&copy; 2026 <span data-business-name>Mother Care</span>. All rights reserved.</p>
+                <p>&copy; 2026 <span data-business-name>CediTill</span>. All rights reserved.</p>
             </div>
         </div>
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="js/business-info.js?v=20260227-4"></script>
-    <script src="js/scripts.js?v=20260227-8"></script>
+    <script src="js/business-info.js?v=20260228-1"></script>
+    <script src="js/scripts.js?v=20260228-1"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const revealItems = document.querySelectorAll('.reveal-up');

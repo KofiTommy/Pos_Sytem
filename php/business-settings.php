@@ -5,12 +5,12 @@ include 'admin-auth.php';
 include 'db-connection.php';
 include 'tenant-context.php';
 
-const DEFAULT_BUSINESS_NAME = 'Mother Care';
-const DEFAULT_BUSINESS_EMAIL = 'info@mothercare.com';
+const DEFAULT_BUSINESS_NAME = 'CediTill';
+const DEFAULT_BUSINESS_EMAIL = 'info@ceditill.com';
 const DEFAULT_CONTACT_NUMBER = '+233 000 000 000';
 const DEFAULT_THEME_PALETTE = 'default';
-const DEFAULT_HERO_TAGLINE = 'Premium baby care products for your little ones. Quality you can trust.';
-const DEFAULT_FOOTER_NOTE = 'Trusted essentials, safe choices, and a smooth shopping experience for every parent.';
+const DEFAULT_HERO_TAGLINE = 'Universal POS tools to manage sales, inventory, and customers with confidence.';
+const DEFAULT_FOOTER_NOTE = 'CediTill helps businesses run faster checkout, smarter stock control, and clear daily sales insights.';
 
 function allowed_theme_palettes() {
     return ['default', 'ocean', 'sunset', 'forest', 'mono'];
@@ -141,6 +141,22 @@ function load_settings(mysqli $conn, int $businessId, array $business = []) {
 function resolve_business_for_request(mysqli $conn, string $method): array {
     if ($method === 'GET') {
         $requestedCode = trim((string)($_GET['business_code'] ?? ($_GET['tenant'] ?? '')));
+        $adminAuthenticated = is_admin_authenticated();
+
+        // Public storefront request with no explicit tenant should use platform defaults,
+        // not sticky tenant/session/cookie context.
+        if ($requestedCode === '' && !$adminAuthenticated) {
+            return [
+                'id' => 0,
+                'business_code' => '',
+                'status' => 'active',
+                'subscription_plan' => MULTI_TENANT_DEFAULT_PLAN,
+                'business_name' => DEFAULT_BUSINESS_NAME,
+                'business_email' => DEFAULT_BUSINESS_EMAIL,
+                'contact_number' => DEFAULT_CONTACT_NUMBER
+            ];
+        }
+
         return tenant_require_business_context(
             $conn,
             ['business_code' => $requestedCode],
@@ -174,11 +190,23 @@ try {
 
     $business = resolve_business_for_request($conn, $method);
     $businessId = intval($business['id'] ?? 0);
-    if ($businessId <= 0) {
+    if ($businessId <= 0 && $method !== 'GET') {
         throw new Exception('Business account not found.');
     }
 
     if ($method === 'GET') {
+        if ($businessId <= 0) {
+            respond(true, '', [
+                'business' => [
+                    'id' => 0,
+                    'business_code' => '',
+                    'status' => 'active',
+                    'subscription_plan' => MULTI_TENANT_DEFAULT_PLAN
+                ],
+                'settings' => default_settings_for_business($business)
+            ]);
+        }
+
         respond(true, '', [
             'business' => [
                 'id' => $businessId,
@@ -330,7 +358,8 @@ try {
     respond(false, 'Method not allowed');
 } catch (Exception $e) {
     http_response_code(500);
-    respond(false, $e->getMessage());
+    error_log('business-settings.php: ' . $e->getMessage());
+    respond(false, 'Unable to process business settings right now.');
 } finally {
     if (isset($conn) && $conn instanceof mysqli) {
         $conn->close();

@@ -132,13 +132,15 @@ try {
         throw $e;
     }
 } catch (mysqli_sql_exception $e) {
+    error_log('register-business.php sql: ' . $e->getMessage());
     $code = intval($e->getCode());
     if ($code === 1062) {
         respond(false, 'A record with the same unique value already exists (business code, username, or email).', [], 409);
     }
-    respond(false, $e->getMessage(), [], 500);
+    respond(false, 'Unable to create business account right now.', [], 500);
 } catch (Exception $e) {
-    respond(false, $e->getMessage(), [], 500);
+    error_log('register-business.php: ' . $e->getMessage());
+    respond(false, 'Unable to create business account right now.', [], 500);
 } finally {
     if (isset($conn) && $conn instanceof mysqli) {
         $conn->close();

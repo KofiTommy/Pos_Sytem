@@ -260,7 +260,8 @@ try {
     ]);
 } catch (Exception $e) {
     http_response_code(500);
-    respond(false, $e->getMessage());
+    error_log('dashboard-data.php: ' . $e->getMessage());
+    respond(false, 'Unable to load dashboard data right now.');
 } finally {
     if (isset($conn) && $conn instanceof mysqli) {
         $conn->close();

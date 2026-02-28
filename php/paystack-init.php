@@ -184,7 +184,8 @@ try {
     ]);
 } catch (Exception $e) {
     http_response_code(400);
-    respond(false, $e->getMessage());
+    error_log('paystack-init.php: ' . $e->getMessage());
+    respond(false, 'Unable to initialize payment right now.');
 } finally {
     if (isset($conn) && $conn instanceof mysqli) {
         $conn->close();

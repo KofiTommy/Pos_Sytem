@@ -8,7 +8,7 @@ $currentRole = current_user_role();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Business Info - Mother Care POS</title>
+    <title>Business Info - CediTill POS</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="../../css/style.css">
@@ -122,13 +122,44 @@ $currentRole = current_user_role();
                     <div class="card-body">
                         <div class="text-center border rounded p-3 bg-light">
                             <img id="logoPreview" class="img-fluid mb-3 d-none" alt="Business logo preview" style="max-height: 90px;">
-                            <h4 class="mb-1" id="namePreview">Mother Care</h4>
-                            <p class="mb-1 text-muted" id="emailPreview">info@mothercare.com</p>
+                            <h4 class="mb-1" id="namePreview">CediTill</h4>
+                            <p class="mb-1 text-muted" id="emailPreview">info@ceditill.com</p>
                             <p class="mb-0 text-muted" id="phonePreview">+233 000 000 000</p>
-                            <p class="mt-2 mb-1 small text-muted" id="heroPreview">Premium baby care products for your little ones. Quality you can trust.</p>
-                            <p class="mb-0 small text-muted" id="footerPreview">Trusted essentials, safe choices, and a smooth shopping experience for every parent.</p>
+                            <p class="mt-2 mb-1 small text-muted" id="heroPreview">Universal POS tools to manage sales, inventory, and customers with confidence.</p>
+                            <p class="mb-0 small text-muted" id="footerPreview">CediTill helps businesses run faster checkout, smarter stock control, and clear daily sales insights.</p>
                             <span class="badge bg-secondary mt-2" id="palettePreview">Palette: default</span>
                         </div>
+                    </div>
+                </div>
+
+                <div class="card border-0 shadow-sm mt-4">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0"><i class="fas fa-link"></i> Shareable Links</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted small mb-3">Use these links so customers and staff open the correct shop.</p>
+                        <div class="mb-3">
+                            <label for="storeUrlInput" class="form-label">Customer Store URL (always works)</label>
+                            <div class="input-group">
+                                <input type="text" id="storeUrlInput" class="form-control" readonly>
+                                <button type="button" class="btn btn-outline-primary" id="copyStoreUrlBtn">Copy</button>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="prettyStoreUrlInput" class="form-label">Customer Store URL (pretty)</label>
+                            <div class="input-group">
+                                <input type="text" id="prettyStoreUrlInput" class="form-control" readonly>
+                                <button type="button" class="btn btn-outline-primary" id="copyPrettyStoreUrlBtn">Copy</button>
+                            </div>
+                        </div>
+                        <div class="mb-0">
+                            <label for="staffLoginUrlInput" class="form-label">Staff Login URL</label>
+                            <div class="input-group">
+                                <input type="text" id="staffLoginUrlInput" class="form-control" readonly>
+                                <button type="button" class="btn btn-outline-primary" id="copyStaffLoginUrlBtn">Copy</button>
+                            </div>
+                        </div>
+                        <div id="shareLinksAlert" class="small mt-2 text-muted"></div>
                     </div>
                 </div>
             </div>
@@ -139,6 +170,47 @@ $currentRole = current_user_role();
     <script src="../../js/admin-notifications.js"></script>
     <script>
         let currentLogoFilename = '';
+        let currentBusinessCode = '';
+
+        function sanitizeTenantCode(value) {
+            return String(value || '')
+                .toLowerCase()
+                .trim()
+                .replace(/[^a-z0-9-]/g, '')
+                .substring(0, 64);
+        }
+
+        function resolveBasePath() {
+            const path = String(window.location.pathname || '');
+            const marker = '/pages/admin/';
+            const lower = path.toLowerCase();
+            const idx = lower.indexOf(marker);
+            if (idx >= 0) {
+                return path.substring(0, idx);
+            }
+            return path.replace(/\/[^/]*$/, '');
+        }
+
+        function buildShareUrls(businessCode) {
+            const code = sanitizeTenantCode(businessCode);
+            if (!code) {
+                return {
+                    store: '',
+                    pretty: '',
+                    login: ''
+                };
+            }
+
+            const origin = String(window.location.origin || '');
+            const basePath = resolveBasePath();
+            const encodedCode = encodeURIComponent(code);
+
+            return {
+                store: `${origin}${basePath}/index.html?tenant=${encodedCode}`,
+                pretty: `${origin}${basePath}/b/${encodedCode}/`,
+                login: `${origin}${basePath}/pages/login.html?tenant=${encodedCode}`
+            };
+        }
 
         function escapeHtml(value) {
             return String(value || '')
@@ -157,12 +229,58 @@ $currentRole = current_user_role();
             document.getElementById('formAlert').innerHTML = `<div class="alert alert-${type} mb-0">${escapeHtml(message)}</div>`;
         }
 
+        function showShareAlert(message, type = 'muted') {
+            const el = document.getElementById('shareLinksAlert');
+            el.className = `small mt-2 text-${type}`;
+            el.textContent = message;
+        }
+
+        function renderShareLinks() {
+            const urls = buildShareUrls(currentBusinessCode);
+            const storeInput = document.getElementById('storeUrlInput');
+            const prettyInput = document.getElementById('prettyStoreUrlInput');
+            const loginInput = document.getElementById('staffLoginUrlInput');
+
+            storeInput.value = urls.store;
+            prettyInput.value = urls.pretty;
+            loginInput.value = urls.login;
+
+            const hasUrls = !!urls.store;
+            document.getElementById('copyStoreUrlBtn').disabled = !hasUrls;
+            document.getElementById('copyPrettyStoreUrlBtn').disabled = !hasUrls;
+            document.getElementById('copyStaffLoginUrlBtn').disabled = !hasUrls;
+
+            if (hasUrls) {
+                showShareAlert(`Business code: ${sanitizeTenantCode(currentBusinessCode)}`, 'muted');
+            } else {
+                showShareAlert('Business code not found for link generation.', 'warning');
+            }
+        }
+
+        async function copyInputValue(inputId, successLabel) {
+            const input = document.getElementById(inputId);
+            const text = String(input.value || '').trim();
+            if (!text) {
+                showShareAlert('No link to copy yet.', 'warning');
+                return;
+            }
+
+            try {
+                await navigator.clipboard.writeText(text);
+                showShareAlert(successLabel, 'success');
+            } catch (error) {
+                input.focus();
+                input.select();
+                showShareAlert('Clipboard was blocked. Press Ctrl+C after selecting the text.', 'warning');
+            }
+        }
+
         function renderPreview() {
             const name = document.getElementById('businessName').value.trim() || 'Business name';
             const email = document.getElementById('businessEmail').value.trim() || 'email@example.com';
             const phone = document.getElementById('contactNumber').value.trim() || 'Phone number';
-            const heroTagline = document.getElementById('heroTagline').value.trim() || 'Premium baby care products for your little ones. Quality you can trust.';
-            const footerNote = document.getElementById('footerNote').value.trim() || 'Trusted essentials, safe choices, and a smooth shopping experience for every parent.';
+            const heroTagline = document.getElementById('heroTagline').value.trim() || 'Universal POS tools to manage sales, inventory, and customers with confidence.';
+            const footerNote = document.getElementById('footerNote').value.trim() || 'CediTill helps businesses run faster checkout, smarter stock control, and clear daily sales insights.';
             const palette = document.getElementById('themePalette').value || 'default';
             const removeLogo = document.getElementById('removeLogo').checked;
             const logoFile = document.getElementById('logoFile').files[0];
@@ -215,7 +333,9 @@ $currentRole = current_user_role();
             document.getElementById('removeLogo').checked = false;
             document.getElementById('logoFile').value = '';
             currentLogoFilename = data.settings.logo_filename || '';
+            currentBusinessCode = sanitizeTenantCode((data.business && data.business.business_code) || '');
             renderPreview();
+            renderShareLinks();
         }
 
         async function saveSettings(event) {
@@ -296,6 +416,9 @@ $currentRole = current_user_role();
         document.getElementById('logoFile').addEventListener('change', renderPreview);
         document.getElementById('removeLogo').addEventListener('change', renderPreview);
         document.getElementById('deleteBtn').addEventListener('click', deleteSettings);
+        document.getElementById('copyStoreUrlBtn').addEventListener('click', () => copyInputValue('storeUrlInput', 'Customer store URL copied.'));
+        document.getElementById('copyPrettyStoreUrlBtn').addEventListener('click', () => copyInputValue('prettyStoreUrlInput', 'Pretty storefront URL copied.'));
+        document.getElementById('copyStaffLoginUrlBtn').addEventListener('click', () => copyInputValue('staffLoginUrlInput', 'Staff login URL copied.'));
 
         loadSettings().catch((error) => showAlert(error.message, 'danger'));
     </script>

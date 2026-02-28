@@ -1,13 +1,13 @@
 (function () {
     const TENANT_STORAGE_KEY = 'tenant_code';
     const DEFAULT_INFO = {
-        business_name: 'Mother Care',
-        business_email: 'info@mothercare.com',
+        business_name: 'CediTill',
+        business_email: 'info@ceditill.com',
         contact_number: '+233 000 000 000',
         logo_filename: '',
         theme_palette: 'default',
-        hero_tagline: 'Premium baby care products for your little ones. Quality you can trust.',
-        footer_note: 'Trusted essentials, safe choices, and a smooth shopping experience for every parent.'
+        hero_tagline: 'Universal POS tools to manage sales, inventory, and customers with confidence.',
+        footer_note: 'CediTill helps businesses run faster checkout, smarter stock control, and clear daily sales insights.'
     };
 
     const PALETTES = {
@@ -118,11 +118,7 @@
             // Ignore pathname/storage errors.
         }
 
-        try {
-            return sanitizeTenantCode(localStorage.getItem(TENANT_STORAGE_KEY) || '');
-        } catch (error) {
-            return '';
-        }
+        return '';
     }
 
     function withTenant(url) {

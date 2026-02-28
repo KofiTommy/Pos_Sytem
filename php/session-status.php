@@ -1,5 +1,6 @@
 <?php
-session_start();
+include_once __DIR__ . '/session-bootstrap.php';
+secure_session_start();
 header('Content-Type: application/json');
 $role = $_SESSION['role'] ?? null;
 if ($role === 'admin') {

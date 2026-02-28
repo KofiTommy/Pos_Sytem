@@ -2,6 +2,7 @@
 header('Content-Type: application/json');
 header('Cache-Control: private, max-age=180');
 include 'db-connection.php';
+include 'admin-auth.php';
 include 'tenant-context.php';
 
 function safe_text($value, $maxLen = 1000) {
@@ -17,7 +18,17 @@ function safe_image_name($value) {
 }
 
 try {
-    $business = tenant_require_business_context($conn, [], true);
+    $requestedCode = trim((string)($_GET['business_code'] ?? ($_GET['tenant'] ?? '')));
+    if ($requestedCode === '' && !is_admin_authenticated()) {
+        echo json_encode([
+            'success' => true,
+            'products' => [],
+            'count' => 0
+        ]);
+        exit();
+    }
+
+    $business = tenant_require_business_context($conn, ['business_code' => $requestedCode], true);
     $businessId = intval($business['id'] ?? 0);
     if ($businessId <= 0) {
         throw new Exception('Invalid business context');
@@ -125,9 +136,11 @@ try {
     ]);
     
 } catch (Exception $e) {
+    error_log('get-products.php: ' . $e->getMessage());
+    http_response_code(500);
     echo json_encode([
         'success' => false,
-        'message' => $e->getMessage()
+        'message' => 'Unable to load products right now.'
     ]);
 }
 

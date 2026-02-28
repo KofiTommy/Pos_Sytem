@@ -45,11 +45,7 @@ function detectTenantCode() {
         // Ignore pathname parsing/storage issues.
     }
 
-    try {
-        return sanitizeTenantCode(localStorage.getItem(TENANT_STORAGE_KEY) || '');
-    } catch (error) {
-        return '';
-    }
+    return '';
 }
 
 const activeTenantCode = detectTenantCode();
@@ -325,9 +321,63 @@ function showError(message) {
 }
 
 // Load featured products on landing page
+function renderDefaultFeaturedSolutions(container) {
+    const contactHref = withTenantQuery('pages/contact.html');
+    const productsHref = withTenantQuery('pages/products.html');
+    const solutions = [
+        {
+            icon: 'fa-cash-register',
+            title: 'SmartPOS Checkout Suite',
+            description: 'Speed up billing with barcode-ready checkout, receipt generation, and role-based cashier access.',
+            badge: 'Fast Counter Sales',
+            ctaLabel: 'Request Demo',
+            ctaHref: contactHref
+        },
+        {
+            icon: 'fa-boxes-stacked',
+            title: 'Inventory Control Pro',
+            description: 'Monitor stock in real time, reduce stock-outs, and keep all branches aligned on product availability.',
+            badge: 'Stock Accuracy',
+            ctaLabel: 'View Catalog',
+            ctaHref: productsHref
+        },
+        {
+            icon: 'fa-chart-line',
+            title: 'Business Insights Hub',
+            description: 'Track top-selling products, cashier performance, and daily revenue trends from one dashboard.',
+            badge: 'Growth Analytics',
+            ctaLabel: 'Talk to Sales',
+            ctaHref: contactHref
+        }
+    ];
+
+    container.innerHTML = solutions.map((solution) => `
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 product-card">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-inline-flex align-items-center justify-content-center rounded-circle mb-3" style="width:56px;height:56px;background:rgba(15,118,110,0.12);color:#0f766e;">
+                        <i class="fas ${solution.icon} fa-lg"></i>
+                    </div>
+                    <h5 class="card-title mb-2">${escapeHtml(solution.title)}</h5>
+                    <p class="card-text text-muted mb-3">${escapeHtml(solution.description)}</p>
+                    <div class="d-flex justify-content-between align-items-center mt-auto">
+                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle">${escapeHtml(solution.badge)}</span>
+                        <a class="btn btn-primary btn-sm" href="${escapeHtml(solution.ctaHref)}">${escapeHtml(solution.ctaLabel)}</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
 function loadFeaturedProducts() {
     const featuredProductsDiv = document.getElementById('featuredProducts');
     if (!featuredProductsDiv) return;
+
+    if (!activeTenantCode) {
+        renderDefaultFeaturedSolutions(featuredProductsDiv);
+        return;
+    }
 
     fetch(withTenantQuery('php/get-products.php?limit=3&featured=1'))
         .then((response) => response.json())

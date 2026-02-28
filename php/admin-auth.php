@@ -1,7 +1,6 @@
 <?php
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+include_once __DIR__ . '/session-bootstrap.php';
+secure_session_start();
 
 function current_user_role() {
     $role = $_SESSION['role'] ?? '';
@@ -48,17 +47,20 @@ function require_admin_api() {
 
     $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
     if (!in_array($method, ['GET', 'HEAD', 'OPTIONS'], true)) {
-        $host = $_SERVER['HTTP_HOST'] ?? '';
+        $host = strtolower(trim((string)($_SERVER['HTTP_HOST'] ?? '')));
+        $host = explode(':', $host)[0] ?? '';
         $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
         $referer = $_SERVER['HTTP_REFERER'] ?? '';
+        $fetchSite = strtolower(trim((string)($_SERVER['HTTP_SEC_FETCH_SITE'] ?? '')));
 
-        $originHost = $origin !== '' ? parse_url($origin, PHP_URL_HOST) : '';
-        $refererHost = $referer !== '' ? parse_url($referer, PHP_URL_HOST) : '';
+        $originHost = $origin !== '' ? strtolower((string)parse_url($origin, PHP_URL_HOST)) : '';
+        $refererHost = $referer !== '' ? strtolower((string)parse_url($referer, PHP_URL_HOST)) : '';
 
         $sameOrigin = ($originHost !== '' && strcasecmp($originHost, $host) === 0)
             || ($refererHost !== '' && strcasecmp($refererHost, $host) === 0);
 
-        if (!$sameOrigin) {
+        $crossSiteFetch = $fetchSite !== '' && !in_array($fetchSite, ['same-origin', 'same-site', 'none'], true);
+        if ($crossSiteFetch || !$sameOrigin) {
             http_response_code(403);
             header('Content-Type: application/json');
             echo json_encode([

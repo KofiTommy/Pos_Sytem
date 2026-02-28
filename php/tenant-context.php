@@ -1,15 +1,14 @@
 <?php
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+include_once __DIR__ . '/session-bootstrap.php';
+secure_session_start();
 
-const MULTI_TENANT_DEFAULT_NAME = 'Mother Care';
-const MULTI_TENANT_DEFAULT_EMAIL = 'info@mothercare.com';
+const MULTI_TENANT_DEFAULT_NAME = 'CediTill';
+const MULTI_TENANT_DEFAULT_EMAIL = 'info@ceditill.com';
 const MULTI_TENANT_DEFAULT_PHONE = '+233 000 000 000';
 const MULTI_TENANT_DEFAULT_PLAN = 'starter';
 const MULTI_TENANT_DEFAULT_THEME_PALETTE = 'default';
-const MULTI_TENANT_DEFAULT_HERO_TAGLINE = 'Premium baby care products for your little ones. Quality you can trust.';
-const MULTI_TENANT_DEFAULT_FOOTER_NOTE = 'Trusted essentials, safe choices, and a smooth shopping experience for every parent.';
+const MULTI_TENANT_DEFAULT_HERO_TAGLINE = 'Universal POS tools to manage sales, inventory, and customers with confidence.';
+const MULTI_TENANT_DEFAULT_FOOTER_NOTE = 'CediTill helps businesses run faster checkout, smarter stock control, and clear daily sales insights.';
 
 function run_tenant_schema_query(mysqli $conn, string $sql, array $ignoreCodes = [1060, 1061, 1091]): void {
     try {
@@ -409,8 +408,8 @@ function ensure_multitenant_schema(mysqli $conn): void {
         run_tenant_schema_query($conn, "ALTER TABLE business_settings MODIFY id INT NOT NULL AUTO_INCREMENT", [1060, 1067, 1833]);
         run_tenant_schema_query($conn, "ALTER TABLE business_settings ADD COLUMN business_id INT NULL AFTER id");
         run_tenant_schema_query($conn, "ALTER TABLE business_settings ADD COLUMN theme_palette VARCHAR(30) NOT NULL DEFAULT 'default' AFTER logo_filename");
-        run_tenant_schema_query($conn, "ALTER TABLE business_settings ADD COLUMN hero_tagline VARCHAR(320) NOT NULL DEFAULT 'Premium baby care products for your little ones. Quality you can trust.' AFTER theme_palette");
-        run_tenant_schema_query($conn, "ALTER TABLE business_settings ADD COLUMN footer_note VARCHAR(320) NOT NULL DEFAULT 'Trusted essentials, safe choices, and a smooth shopping experience for every parent.' AFTER hero_tagline");
+        run_tenant_schema_query($conn, "ALTER TABLE business_settings ADD COLUMN hero_tagline VARCHAR(320) NOT NULL DEFAULT 'Universal POS tools to manage sales, inventory, and customers with confidence.' AFTER theme_palette");
+        run_tenant_schema_query($conn, "ALTER TABLE business_settings ADD COLUMN footer_note VARCHAR(320) NOT NULL DEFAULT 'CediTill helps businesses run faster checkout, smarter stock control, and clear daily sales insights.' AFTER hero_tagline");
         run_tenant_schema_query($conn, "ALTER TABLE business_settings ADD UNIQUE KEY uk_business_settings_business_id (business_id)");
         $updateStmt = $conn->prepare(
             "UPDATE business_settings

@@ -1,9 +1,18 @@
 <?php
-session_start();
+include_once __DIR__ . '/session-bootstrap.php';
+secure_session_start();
 header('Content-Type: application/json');
 include 'db-connection.php';
 include 'payment-schema.php';
 include 'tenant-context.php';
+
+function clean_text_input($value, $maxLen = 255) {
+    $text = trim(strip_tags((string)$value));
+    if (strlen($text) > $maxLen) {
+        $text = substr($text, 0, $maxLen);
+    }
+    return $text;
+}
 
 try {
     if ($_SERVER['REQUEST_METHOD'] != 'POST') {
@@ -21,14 +30,14 @@ try {
         throw new Exception('Invalid business context');
     }
     
-    $customer_name = isset($_POST['customer_name']) ? trim($_POST['customer_name']) : '';
-    $customer_email = isset($_POST['customer_email']) ? trim($_POST['customer_email']) : '';
-    $customer_phone = isset($_POST['customer_phone']) ? trim($_POST['customer_phone']) : '';
-    $address = isset($_POST['address']) ? trim($_POST['address']) : '';
-    $city = isset($_POST['city']) ? trim($_POST['city']) : '';
-    $postal_code = isset($_POST['postal_code']) ? trim($_POST['postal_code']) : '';
-    $notes = isset($_POST['notes']) ? trim($_POST['notes']) : '';
-    $payment_method = isset($_POST['payment_method']) ? trim($_POST['payment_method']) : 'cod';
+    $customer_name = clean_text_input($_POST['customer_name'] ?? '', 120);
+    $customer_email = clean_text_input($_POST['customer_email'] ?? '', 160);
+    $customer_phone = clean_text_input($_POST['customer_phone'] ?? '', 40);
+    $address = clean_text_input($_POST['address'] ?? '', 255);
+    $city = clean_text_input($_POST['city'] ?? '', 120);
+    $postal_code = clean_text_input($_POST['postal_code'] ?? '', 40);
+    $notes = clean_text_input($_POST['notes'] ?? '', 1000);
+    $payment_method = strtolower(clean_text_input($_POST['payment_method'] ?? 'cod', 40));
     $cart_data = isset($_POST['cart_data']) ? $_POST['cart_data'] : '[]';
 
     $allowed_payment_methods = ['cod', 'cash_on_delivery', 'pay_on_delivery'];
@@ -190,9 +199,11 @@ try {
     }
     
 } catch (Exception $e) {
+    error_log('process-order.php: ' . $e->getMessage());
+    http_response_code(400);
     echo json_encode([
         'success' => false,
-        'message' => $e->getMessage()
+        'message' => 'Unable to place order. Please review your details and try again.'
     ]);
 }
 

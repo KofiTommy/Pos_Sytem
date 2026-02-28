@@ -56,7 +56,8 @@ try {
     ]);
 } catch (Exception $e) {
     http_response_code(500);
-    respond(false, $e->getMessage());
+    error_log('admin-notifications.php: ' . $e->getMessage());
+    respond(false, 'Unable to load notifications right now.');
 } finally {
     if (isset($conn) && $conn instanceof mysqli) {
         $conn->close();

@@ -3,6 +3,17 @@ include '../../php/admin-auth.php';
 require_roles_page(['owner', 'sales'], '../login.html');
 $currentRole = current_user_role();
 $isOwner = $currentRole === 'owner';
+$currentBusinessCode = current_business_code();
+$tenantQuery = $currentBusinessCode !== '' ? ('?tenant=' . rawurlencode($currentBusinessCode)) : '';
+$scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+$host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+$scriptName = str_replace('\\', '/', (string)($_SERVER['SCRIPT_NAME'] ?? ''));
+$appBasePath = preg_replace('#/pages/admin/[^/]+$#', '', $scriptName);
+if (!is_string($appBasePath) || $appBasePath === '') {
+    $appBasePath = '/possystem';
+}
+$appBaseUrl = $scheme . '://' . $host . $appBasePath;
+$tenantStorefrontUrl = $appBaseUrl . '/index.html' . $tenantQuery;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -27,7 +38,7 @@ $isOwner = $currentRole === 'owner';
                 <a href="users.php" class="btn btn-outline-warning btn-sm">Manage Staff</a>
                 <?php endif; ?>
                 <a href="sales.php" class="btn btn-outline-primary btn-sm">Sales History</a>
-                <a href="../products.html" class="btn btn-outline-dark btn-sm">View Storefront</a>
+                <a href="<?php echo htmlspecialchars($tenantStorefrontUrl); ?>" class="btn btn-outline-dark btn-sm">View Storefront</a>
                 <span class="badge bg-<?php echo $isOwner ? 'warning text-dark' : 'primary'; ?> align-self-center text-uppercase"><?php echo htmlspecialchars($currentRole); ?></span>
                 <div class="dropdown">
                     <button class="btn btn-outline-secondary btn-sm position-relative" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Notifications">
@@ -56,6 +67,16 @@ $isOwner = $currentRole === 'owner';
     </nav>
 
     <main class="container py-4">
+        <div class="alert alert-info d-flex flex-column flex-md-row gap-2 justify-content-between align-items-md-center">
+            <div class="small">
+                <strong>Business code:</strong> <code><?php echo htmlspecialchars($currentBusinessCode); ?></code>
+            </div>
+            <div class="input-group input-group-sm" style="max-width: 620px;">
+                <input id="shopShareUrl" class="form-control" readonly value="<?php echo htmlspecialchars($tenantStorefrontUrl); ?>">
+                <button id="copyShopShareUrl" class="btn btn-outline-primary" type="button">Copy Shop URL</button>
+            </div>
+        </div>
+
         <div class="row g-4">
             <div class="col-lg-8">
                 <div class="card border-0 shadow-sm">
@@ -187,7 +208,7 @@ $isOwner = $currentRole === 'owner';
                     html += `
                         <div class="list-group-item py-2">
                             <div class="d-flex justify-content-between">
-                                <strong>${item.name}</strong>
+                                <strong>${escapeHtml(item.name)}</strong>
                                 <span>${asMoney(item.price * item.quantity)}</span>
                             </div>
                             <div class="d-flex justify-content-between align-items-center mt-1">
@@ -221,24 +242,37 @@ $isOwner = $currentRole === 'owner';
                 return;
             }
 
-            grid.innerHTML = products.map((product) => `
-                <div class="col-md-6 col-xl-4">
-                    <div class="card h-100 product-card ${Number(product.stock) > 0 ? 'product-card-clickable' : ''}" data-product-id="${product.id}" ${Number(product.stock) > 0 ? 'role="button" tabindex="0" aria-label="Add ' + escapeHtml(product.name) + ' to sale"' : ''}>
-                        <img src="../../assets/images/${product.image}" class="card-img-top" alt="${product.name}">
-                        <div class="card-body">
-                            <h6 class="card-title mb-1">${product.name}</h6>
-                            <p class="small text-muted mb-1">${product.category || ''}</p>
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span class="fw-bold">${asMoney(product.price)}</span>
-                                <span class="badge ${Number(product.stock) > 0 ? 'bg-success' : 'bg-danger'}">${product.stock} in stock</span>
+            grid.innerHTML = products.map((product) => {
+                const productId = Number(product.id || 0);
+                const safeName = escapeHtml(product.name || '');
+                const safeCategory = escapeHtml(product.category || '');
+                const safeImage = sanitizeFilename(product.image || '');
+                const stock = Number(product.stock || 0);
+                const stockClass = stock > 0 ? 'bg-success' : 'bg-danger';
+                const clickableClass = stock > 0 ? 'product-card-clickable' : '';
+                const clickableAttrs = stock > 0
+                    ? `role="button" tabindex="0" aria-label="Add ${safeName} to sale"`
+                    : '';
+
+                return `
+                    <div class="col-md-6 col-xl-4">
+                        <div class="card h-100 product-card ${clickableClass}" data-product-id="${productId}" ${clickableAttrs}>
+                            <img src="../../assets/images/${safeImage}" class="card-img-top" alt="${safeName}">
+                            <div class="card-body">
+                                <h6 class="card-title mb-1">${safeName}</h6>
+                                <p class="small text-muted mb-1">${safeCategory}</p>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="fw-bold">${asMoney(product.price)}</span>
+                                    <span class="badge ${stockClass}">${stock} in stock</span>
+                                </div>
+                                <button type="button" class="btn btn-primary btn-sm w-100 mt-3" ${stock <= 0 ? 'disabled' : ''} onclick="event.stopPropagation(); addToCart(${productId})">
+                                    Add to Sale
+                                </button>
                             </div>
-                            <button type="button" class="btn btn-primary btn-sm w-100 mt-3" ${Number(product.stock) <= 0 ? 'disabled' : ''} onclick="event.stopPropagation(); addToCart(${product.id})">
-                                Add to Sale
-                            </button>
                         </div>
                     </div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
         }
 
         async function loadProducts() {
@@ -519,6 +553,20 @@ $isOwner = $currentRole === 'owner';
                 } catch (error) {
                     alert(error.message);
                 }
+            }
+        });
+
+        document.getElementById('copyShopShareUrl').addEventListener('click', async () => {
+            const input = document.getElementById('shopShareUrl');
+            const text = String(input.value || '').trim();
+            if (!text) return;
+
+            try {
+                await navigator.clipboard.writeText(text);
+            } catch (error) {
+                input.focus();
+                input.select();
+                alert('Press Ctrl+C to copy the shop URL.');
             }
         });
 

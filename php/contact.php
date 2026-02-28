@@ -56,7 +56,8 @@ try {
 
     respond(true, 'Message sent successfully. We will get back to you soon.');
 } catch (Exception $e) {
-    respond(false, $e->getMessage());
+    error_log('contact.php: ' . $e->getMessage());
+    respond(false, 'Unable to send your message right now. Please try again later.');
 } finally {
     if (isset($conn) && $conn instanceof mysqli) {
         $conn->close();

@@ -244,7 +244,8 @@ try {
     respond(false, 'Method not allowed');
 } catch (Exception $e) {
     http_response_code(500);
-    respond(false, $e->getMessage());
+    error_log('manage-users.php: ' . $e->getMessage());
+    respond(false, 'Unable to process user management request right now.');
 } finally {
     if (isset($conn) && $conn instanceof mysqli) {
         $conn->close();

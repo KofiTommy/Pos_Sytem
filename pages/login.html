@@ -289,13 +289,14 @@
             const params = new URLSearchParams(window.location.search || '');
             const fromUrl = sanitizeTenantCode(params.get('tenant') || params.get('business_code') || '');
             const fromPath = detectTenantCodeFromPath(window.location.pathname || '');
-            const fromStorage = sanitizeTenantCode(localStorage.getItem('tenant_code') || '');
-            const activeTenant = fromUrl || fromPath || fromStorage;
+            const activeTenant = fromUrl || fromPath;
             if (activeTenant) {
                 localStorage.setItem('tenant_code', activeTenant);
                 document.getElementById('business_code').value = activeTenant;
                 document.getElementById('reg_business_code').value = activeTenant;
                 document.getElementById('backHomeLink').href = withTenantQuery('../index.html', activeTenant);
+            } else {
+                localStorage.removeItem('tenant_code');
             }
             return activeTenant;
         }
