@@ -7,7 +7,7 @@ include 'tenant-context.php';
 
 const DEFAULT_BUSINESS_NAME = 'CediTill';
 const DEFAULT_BUSINESS_EMAIL = 'info@ceditill.com';
-const DEFAULT_CONTACT_NUMBER = '+233 000 000 000';
+const DEFAULT_CONTACT_NUMBER = '+233 245 067 195';
 const DEFAULT_THEME_PALETTE = 'default';
 const DEFAULT_HERO_TAGLINE = 'Universal POS tools to manage sales, inventory, and customers with confidence.';
 const DEFAULT_FOOTER_NOTE = 'CediTill helps businesses run faster checkout, smarter stock control, and clear daily sales insights.';

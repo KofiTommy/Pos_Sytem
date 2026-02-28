@@ -3,7 +3,7 @@
     const DEFAULT_INFO = {
         business_name: 'CediTill',
         business_email: 'info@ceditill.com',
-        contact_number: '+233 000 000 000',
+        contact_number: '+233 245 067 195',
         logo_filename: '',
         theme_palette: 'default',
         hero_tagline: 'Universal POS tools to manage sales, inventory, and customers with confidence.',
