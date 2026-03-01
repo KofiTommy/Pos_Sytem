@@ -168,7 +168,7 @@
                             </div>
                             <div class="col-md-4">
                                 <label for="reg_owner_username" class="form-label">Owner Username</label>
-                                <input type="text" class="form-control" id="reg_owner_username" maxlength="60" required>
+                                <input type="text" class="form-control" id="reg_owner_username" maxlength="100" required>
                             </div>
                             <div class="col-md-4">
                                 <label for="reg_owner_email" class="form-label">Owner Email</label>
@@ -190,6 +190,12 @@
                             <div class="col-md-6">
                                 <label for="reg_owner_password_confirm" class="form-label">Confirm Password</label>
                                 <input type="password" class="form-control" id="reg_owner_password_confirm" minlength="10" required>
+                            </div>
+                            <div class="col-12">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="showRegisterPassword">
+                                    <label class="form-check-label" for="showRegisterPassword">Show password while typing</label>
+                                </div>
                             </div>
                             <div class="col-12">
                                 <button type="submit" class="btn btn-success btn-register" id="registerBtn">
@@ -316,6 +322,14 @@
             }
         }
 
+        function setRegisterPasswordVisibility(isVisible) {
+            const passwordInput = document.getElementById('reg_owner_password');
+            const confirmInput = document.getElementById('reg_owner_password_confirm');
+            const nextType = isVisible ? 'text' : 'password';
+            passwordInput.type = nextType;
+            confirmInput.type = nextType;
+        }
+
         async function handleLoginSubmit(event) {
             event.preventDefault();
 
@@ -407,6 +421,9 @@
                 document.getElementById('username').value = payload.owner_username;
                 document.getElementById('password').value = '';
                 document.getElementById('registerForm').reset();
+                const showRegisterPassword = document.getElementById('showRegisterPassword');
+                showRegisterPassword.checked = false;
+                setRegisterPasswordVisibility(false);
                 if (code) {
                     document.getElementById('reg_business_code').value = code;
                 }
@@ -429,6 +446,9 @@
         });
         document.getElementById('reg_business_code').addEventListener('input', function () {
             this.value = sanitizeTenantCode(this.value);
+        });
+        document.getElementById('showRegisterPassword').addEventListener('change', function () {
+            setRegisterPasswordVisibility(this.checked);
         });
 
         document.addEventListener('DOMContentLoaded', async function () {

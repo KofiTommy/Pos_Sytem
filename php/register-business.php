@@ -60,8 +60,11 @@ try {
     if ($contactNumber !== '' && strlen($contactNumber) > 40) {
         respond(false, 'Contact number is too long', [], 400);
     }
-    if (!preg_match('/^[a-zA-Z0-9._-]{3,60}$/', $ownerUsername)) {
-        respond(false, 'Owner username must be 3-60 chars and use letters, numbers, dot, underscore, or dash', [], 400);
+    if (strlen($ownerUsername) < 2 || strlen($ownerUsername) > 100) {
+        respond(false, 'Owner username must be 2-100 characters.', [], 400);
+    }
+    if (preg_match('/[\x00-\x1F\x7F]/', $ownerUsername)) {
+        respond(false, 'Owner username contains unsupported characters.', [], 400);
     }
     if (!filter_var($ownerEmail, FILTER_VALIDATE_EMAIL) || strlen($ownerEmail) > 160) {
         respond(false, 'Invalid owner email address', [], 400);
