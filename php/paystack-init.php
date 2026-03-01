@@ -26,10 +26,21 @@ try {
         $body = $_POST;
     }
 
+    $explicitBusinessCode = trim((string)($body['business_code'] ?? ''));
+    if ($explicitBusinessCode === '') {
+        $explicitBusinessCode = trim((string)($_GET['business_code'] ?? ($_GET['tenant'] ?? '')));
+    }
+    if ($explicitBusinessCode === '') {
+        $explicitBusinessCode = tenant_request_uri_business_code();
+    }
+    if ($explicitBusinessCode === '') {
+        throw new Exception('Missing business code for payment initialization.');
+    }
+
     $business = tenant_require_business_context(
         $conn,
-        ['business_code' => $body['business_code'] ?? ''],
-        true
+        ['business_code' => $explicitBusinessCode],
+        false
     );
     $businessId = intval($business['id'] ?? 0);
     if ($businessId <= 0) {
@@ -37,7 +48,7 @@ try {
     }
 
     if (!paystack_is_configured($conn, $businessId)) {
-        throw new Exception('Mobile Money is not configured yet. Set Paystack key in Payment Settings or PAYSTACK_SECRET_KEY.');
+        throw new Exception('Mobile Money is not configured yet for this business. Set Paystack key in Payment Settings.');
     }
 
     $customerName = trim((string)($body['customer_name'] ?? ''));

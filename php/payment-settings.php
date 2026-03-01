@@ -64,7 +64,7 @@ function load_settings_payload(mysqli $conn, int $businessId): array {
         'use_sandbox' => intval($settings['use_sandbox'] ?? 1) === 1,
         'public_key' => $public,
         'secret_key_masked' => masked_secret($secret),
-        'source' => trim((string)getenv('PAYSTACK_SECRET_KEY')) !== '' ? 'environment' : 'database',
+        'source' => 'database',
         'crypto_ready' => payment_settings_crypto_key() !== '',
         'updated_at' => $settings['updated_at'] ?? null
     ];

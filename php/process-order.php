@@ -20,10 +20,21 @@ try {
     }
 
     ensure_payment_schema($conn);
+    $explicitBusinessCode = trim((string)($_POST['business_code'] ?? ''));
+    if ($explicitBusinessCode === '') {
+        $explicitBusinessCode = trim((string)($_GET['business_code'] ?? ($_GET['tenant'] ?? '')));
+    }
+    if ($explicitBusinessCode === '') {
+        $explicitBusinessCode = tenant_request_uri_business_code();
+    }
+    if ($explicitBusinessCode === '') {
+        throw new Exception('Missing business code for checkout.');
+    }
+
     $business = tenant_require_business_context(
         $conn,
-        ['business_code' => $_POST['business_code'] ?? ''],
-        true
+        ['business_code' => $explicitBusinessCode],
+        false
     );
     $businessId = intval($business['id'] ?? 0);
     if ($businessId <= 0) {

@@ -43,10 +43,16 @@ try {
     if ($businessCode === '') {
         $businessCode = trim((string)($_GET['business_code'] ?? ($_GET['tenant'] ?? '')));
     }
+    if ($businessCode === '') {
+        $businessCode = tenant_request_uri_business_code();
+    }
+    if ($businessCode === '') {
+        throw new Exception('Missing business code for payment verification.');
+    }
     $business = tenant_require_business_context(
         $conn,
         ['business_code' => $businessCode],
-        true
+        false
     );
     $businessId = intval($business['id'] ?? 0);
     if ($businessId <= 0) {

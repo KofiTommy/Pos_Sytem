@@ -75,6 +75,19 @@ function resolve_paystack_business_id(mysqli $conn, int $businessId = 0): int {
     return 0;
 }
 
+function resolve_strict_paystack_business_id(int $businessId = 0): int {
+    if ($businessId > 0) {
+        return $businessId;
+    }
+    if (function_exists('tenant_session_business_id')) {
+        $sessionBusinessId = tenant_session_business_id();
+        if ($sessionBusinessId > 0) {
+            return $sessionBusinessId;
+        }
+    }
+    return 0;
+}
+
 function ensure_payment_gateway_settings_table(mysqli $conn, int $businessId = 0): void {
     $conn->query(
         "CREATE TABLE IF NOT EXISTS payment_gateway_settings (
@@ -178,17 +191,17 @@ function load_paystack_settings(mysqli $conn, int $businessId = 0): array {
 }
 
 function paystack_secret_key(?mysqli $conn = null, int $businessId = 0): string {
-    $envSecret = trim((string)getenv('PAYSTACK_SECRET_KEY'));
-    if ($envSecret !== '') {
-        return $envSecret;
-    }
-
     if (!$conn) {
         return '';
     }
 
     try {
-        $settings = load_paystack_settings($conn, $businessId);
+        $strictBusinessId = resolve_strict_paystack_business_id($businessId);
+        if ($strictBusinessId <= 0) {
+            return '';
+        }
+
+        $settings = load_paystack_settings($conn, $strictBusinessId);
         $enabled = intval($settings['enabled'] ?? 0) === 1;
         $ciphertext = (string)($settings['secret_key_ciphertext'] ?? '');
         $iv = (string)($settings['secret_key_iv'] ?? '');
@@ -202,19 +215,28 @@ function paystack_secret_key(?mysqli $conn = null, int $businessId = 0): string 
 }
 
 function paystack_public_key(?mysqli $conn = null, int $businessId = 0): string {
-    $envPublic = trim((string)getenv('PAYSTACK_PUBLIC_KEY'));
-    if ($envPublic !== '') {
-        return $envPublic;
-    }
     if (!$conn) {
         return '';
     }
-    $settings = load_paystack_settings($conn, $businessId);
+
+    $strictBusinessId = resolve_strict_paystack_business_id($businessId);
+    if ($strictBusinessId <= 0) {
+        return '';
+    }
+
+    $settings = load_paystack_settings($conn, $strictBusinessId);
     return trim((string)($settings['public_key'] ?? ''));
 }
 
 function paystack_is_configured(?mysqli $conn = null, int $businessId = 0): bool {
-    return paystack_secret_key($conn, $businessId) !== '';
+    if (!$conn) {
+        return false;
+    }
+    $strictBusinessId = resolve_strict_paystack_business_id($businessId);
+    if ($strictBusinessId <= 0) {
+        return false;
+    }
+    return paystack_secret_key($conn, $strictBusinessId) !== '';
 }
 
 function paystack_generate_reference(): string {
@@ -246,9 +268,14 @@ function paystack_callback_url(?string $businessCode = null): string {
 }
 
 function paystack_api_request(string $method, string $path, ?array $payload = null, ?mysqli $conn = null, int $businessId = 0): array {
+    $strictBusinessId = resolve_strict_paystack_business_id($businessId);
+    if ($strictBusinessId <= 0) {
+        throw new Exception('Missing business context for payment gateway request.');
+    }
+
     $secret = paystack_secret_key($conn, $businessId);
     if ($secret === '') {
-        throw new Exception('PAYSTACK_SECRET_KEY is not configured on the server.');
+        throw new Exception('Paystack secret key is not configured for this business.');
     }
 
     $url = 'https://api.paystack.co' . $path;

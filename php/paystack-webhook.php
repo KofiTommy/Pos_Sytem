@@ -34,6 +34,11 @@ try {
         }
     }
 
+    if ($businessId <= 0) {
+        echo 'ignored';
+        exit();
+    }
+
     if (!paystack_is_configured($conn, $businessId)) {
         echo 'ignored';
         exit();
