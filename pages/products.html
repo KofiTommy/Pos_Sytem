@@ -22,6 +22,15 @@
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
+            <div class="navbar-mobile-auth d-flex d-lg-none w-100 gap-2 mt-2">
+                <a class="btn btn-sm btn-warning flex-fill nav-auth-btn nav-cart-btn" href="cart.html">
+                    <i class="fas fa-shopping-cart"></i> Cart
+                    <span class="badge text-bg-dark ms-1" data-cart-count>0</span>
+                </a>
+                <a class="btn btn-sm btn-outline-primary flex-fill nav-auth-btn" href="login.html" data-admin-link>
+                    <i class="fas fa-sign-in-alt"></i> Staff Login
+                </a>
+            </div>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
@@ -30,14 +39,14 @@
                     <li class="nav-item">
                         <a class="nav-link active" href="products.html">Products</a>
                     </li>
-                    <li class="nav-item">
+                    <li class="nav-item d-none d-lg-block">
                         <a class="nav-link" href="cart.html">
                             <i class="fas fa-shopping-cart"></i> Cart <span class="badge bg-danger"
-                                id="cartCount">0</span>
+                                id="cartCount" data-cart-count>0</span>
                         </a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link btn btn-sm btn-primary text-white ms-2" href="login.html" data-admin-link>
+                    <li class="nav-item d-none d-lg-block">
+                        <a class="btn btn-sm btn-outline-primary nav-auth-btn ms-lg-2" href="login.html" data-admin-link>
                             <i class="fas fa-sign-in-alt"></i> Staff Login
                         </a>
                     </li>
@@ -136,6 +145,58 @@
         </div>
     </div>
 
+    <div class="modal fade" id="productReviewsModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-star me-2 text-warning"></i>Product Reviews</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <h6 class="mb-2" id="reviewProductName">Product</h6>
+                    <p class="text-muted small mb-3" id="reviewSummaryLine">No reviews yet.</p>
+                    <div id="productReviewsList" class="mb-4">
+                        <p class="text-muted mb-0">Loading reviews...</p>
+                    </div>
+                    <hr>
+                    <h6 class="mb-3">Write a review</h6>
+                    <form id="productReviewForm">
+                        <input type="hidden" id="reviewProductId">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="reviewerName" class="form-label">Your Name</label>
+                                <input type="text" id="reviewerName" class="form-control" maxlength="120" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="reviewerEmail" class="form-label">Email (optional)</label>
+                                <input type="email" id="reviewerEmail" class="form-control" maxlength="160">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="reviewRating" class="form-label">Rating</label>
+                                <select id="reviewRating" class="form-select" required>
+                                    <option value="5">5 - Excellent</option>
+                                    <option value="4">4 - Very Good</option>
+                                    <option value="3">3 - Good</option>
+                                    <option value="2">2 - Fair</option>
+                                    <option value="1">1 - Poor</option>
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <label for="reviewText" class="form-label">Review</label>
+                                <textarea id="reviewText" class="form-control" rows="4" maxlength="2000" required placeholder="Share your experience with this product"></textarea>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <button type="submit" id="submitReviewBtn" class="btn btn-primary">
+                                <i class="fas fa-paper-plane"></i> Submit Review
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Footer -->
     <footer class="footer-mosaic text-white py-5">
         <div class="container">
@@ -181,14 +242,15 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="../js/business-info.js?v=20260228-2"></script>
-    <script src="../js/scripts.js?v=20260228-2"></script>
+    <script src="../js/business-info.js?v=20260301-1"></script>
+    <script src="../js/scripts.js?v=20260301-2"></script>
     <script>
         const LAZY_IMG_PLACEHOLDER = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
         const PAGE_SIZE = 6;
         let currentOffset = 0;
         let hasMoreProducts = true;
         let loadingProducts = false;
+        let productReviewsModal = null;
 
         function buildProductsApiUrl(limit, offset) {
             const baseUrl = `../php/get-products.php?limit=${limit}&offset=${offset}`;
@@ -290,6 +352,11 @@
                             const productImage = sanitizeImageFilename(product.image || '') || 'pexels-jonathan-nenemann-12114822.jpg';
                             const productNameAttr = escapeHtml(productNameRaw);
                             const productImageAttr = escapeHtml(productImage);
+                            const ratingAvg = Number(product.rating_avg || 0);
+                            const ratingCount = Number(product.rating_count || 0);
+                            const ratingSummary = ratingCount > 0
+                                ? `${ratingAvg.toFixed(1)} / 5 (${ratingCount})`
+                                : 'No reviews yet';
 
                             return `
                                 <div class="col-md-6 col-lg-4 mb-4 product-item" data-category="${productCategory}" data-price="${productPrice}">
@@ -305,8 +372,12 @@
                                             <div class="d-flex justify-content-between align-items-center mb-3">
                                                 <span class="text-muted small">${productStock} in stock</span>
                                             </div>
+                                            <div class="product-rating small mb-3"><i class="fas fa-star"></i> ${escapeHtml(ratingSummary)}</div>
                                             <button type="button" class="btn btn-primary btn-sm w-100" data-product-id="${productId}" data-product-name="${productNameAttr}" data-product-price="${productPrice}" data-product-image="${productImageAttr}" onclick="event.stopPropagation(); addToCartFromElement(this)">
                                                 <i class="fas fa-shopping-cart"></i> Add to Cart
+                                            </button>
+                                            <button type="button" class="btn btn-outline-secondary btn-sm w-100 mt-2" data-product-id="${productId}" data-product-name="${productNameAttr}" onclick="event.stopPropagation(); openReviewsFromElement(this)">
+                                                <i class="fas fa-message"></i> Reviews
                                             </button>
                                         </div>
                                     </div>
@@ -341,6 +412,129 @@
                 .finally(() => {
                     loadingProducts = false;
                 });
+        }
+
+        function buildProductReviewsApiUrl(productId, limit = 20) {
+            const baseUrl = `../php/product-reviews.php?product_id=${Number(productId)}&limit=${Number(limit)}`;
+            if (typeof withTenantQuery === 'function') {
+                return withTenantQuery(baseUrl);
+            }
+            return baseUrl;
+        }
+
+        function renderReviewStars(rating) {
+            const score = Math.max(0, Math.min(5, Number(rating || 0)));
+            const fullStars = Math.round(score);
+            let stars = '';
+            for (let i = 1; i <= 5; i += 1) {
+                stars += i <= fullStars
+                    ? '<i class="fas fa-star text-warning"></i>'
+                    : '<i class="far fa-star text-warning"></i>';
+            }
+            return stars;
+        }
+
+        async function loadProductReviews(productId) {
+            const list = document.getElementById('productReviewsList');
+            const summaryLine = document.getElementById('reviewSummaryLine');
+            list.innerHTML = '<p class="text-muted mb-0">Loading reviews...</p>';
+
+            const response = await fetch(buildProductReviewsApiUrl(productId));
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.message || 'Unable to load reviews');
+            }
+
+            const ratingCount = Number((data.summary || {}).rating_count || 0);
+            const ratingAvg = Number((data.summary || {}).rating_avg || 0);
+            summaryLine.textContent = ratingCount > 0
+                ? `${ratingAvg.toFixed(1)} / 5 from ${ratingCount} review(s)`
+                : 'No reviews yet. Be the first to review this product.';
+
+            const reviews = data.reviews || [];
+            if (!reviews.length) {
+                list.innerHTML = '<p class="text-muted mb-0">No reviews yet.</p>';
+                return;
+            }
+
+            list.innerHTML = reviews.map((review) => {
+                const createdAt = String(review.created_at || '');
+                return `
+                    <div class="border rounded p-3 mb-2">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <strong>${escapeHtml(review.reviewer_name || 'Anonymous')}</strong>
+                            <small class="text-muted">${escapeHtml(createdAt)}</small>
+                        </div>
+                        <div class="mb-2">${renderReviewStars(review.rating)} <small class="text-muted">${Number(review.rating || 0)}/5</small></div>
+                        <p class="mb-0">${escapeHtml(review.review_text || '')}</p>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function openReviewsFromElement(element) {
+            if (!element) return;
+            const productId = Number(element.dataset.productId || 0);
+            const productName = String(element.dataset.productName || 'Product');
+            if (productId <= 0) return;
+
+            document.getElementById('productReviewForm').reset();
+            document.getElementById('reviewProductId').value = String(productId);
+            document.getElementById('reviewProductName').textContent = productName;
+            document.getElementById('reviewRating').value = '5';
+
+            if (productReviewsModal) {
+                productReviewsModal.show();
+            }
+
+            try {
+                await loadProductReviews(productId);
+            } catch (error) {
+                document.getElementById('productReviewsList').innerHTML = `<p class="text-danger mb-0">${escapeHtml(error.message)}</p>`;
+            }
+        }
+
+        async function submitProductReview(event) {
+            event.preventDefault();
+
+            const submitBtn = document.getElementById('submitReviewBtn');
+            const productId = Number(document.getElementById('reviewProductId').value || 0);
+            const payload = {
+                product_id: productId,
+                reviewer_name: String(document.getElementById('reviewerName').value || '').trim(),
+                reviewer_email: String(document.getElementById('reviewerEmail').value || '').trim(),
+                rating: Number(document.getElementById('reviewRating').value || 0),
+                review_text: String(document.getElementById('reviewText').value || '').trim()
+            };
+
+            if (typeof withTenantPayload === 'function') {
+                withTenantPayload(payload);
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Submitting...';
+
+            try {
+                const response = await fetch((typeof withTenantQuery === 'function') ? withTenantQuery('../php/product-reviews.php') : '../php/product-reviews.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                if (!data.success) {
+                    throw new Error(data.message || 'Unable to submit review');
+                }
+
+                document.getElementById('reviewText').value = '';
+                showNotification(data.message || 'Review submitted successfully.');
+                await loadProductReviews(productId);
+                loadProducts(true);
+            } catch (error) {
+                showError(error.message || 'Unable to submit review');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Review';
+            }
         }
 
         function filterByPrice() {
@@ -392,6 +586,8 @@
             if (typeof updateCartCount === 'function') {
                 updateCartCount();
             }
+            productReviewsModal = new bootstrap.Modal(document.getElementById('productReviewsModal'));
+            document.getElementById('productReviewForm').addEventListener('submit', submitProductReview);
             loadProducts(true);
             const loadMoreBtn = document.getElementById('loadMoreBtn');
             if (loadMoreBtn) {

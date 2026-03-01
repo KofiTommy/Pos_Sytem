@@ -91,6 +91,22 @@ UPDATE contact_messages SET business_id = @default_business_id WHERE business_id
 ALTER TABLE contact_messages MODIFY business_id INT NOT NULL;
 ALTER TABLE contact_messages ADD INDEX IF NOT EXISTS idx_contact_messages_business_id (business_id);
 
+CREATE TABLE IF NOT EXISTS product_reviews (
+  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  business_id INT NOT NULL,
+  product_id INT NOT NULL,
+  reviewer_name VARCHAR(120) NOT NULL,
+  reviewer_email VARCHAR(160) NOT NULL DEFAULT '',
+  rating TINYINT UNSIGNED NOT NULL,
+  review_text TEXT NOT NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'approved',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_product_reviews_business_id (business_id),
+  INDEX idx_product_reviews_business_product (business_id, product_id),
+  INDEX idx_product_reviews_business_status_created (business_id, status, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 INSERT INTO business_settings (business_id, business_name, business_email, contact_number, logo_filename, theme_palette, hero_tagline, footer_note)
 SELECT
   b.id,

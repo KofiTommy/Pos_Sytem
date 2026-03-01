@@ -239,6 +239,25 @@ INSERT INTO `products` (`id`, `name`, `description`, `price`, `category_id`, `ca
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `product_reviews`
+--
+
+CREATE TABLE `product_reviews` (
+  `id` int(11) NOT NULL,
+  `business_id` int(11) NOT NULL,
+  `product_id` int(11) NOT NULL,
+  `reviewer_name` varchar(120) NOT NULL,
+  `reviewer_email` varchar(160) NOT NULL DEFAULT '',
+  `rating` tinyint(3) unsigned NOT NULL,
+  `review_text` text NOT NULL,
+  `status` varchar(20) NOT NULL DEFAULT 'approved',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `users`
 --
 
@@ -328,6 +347,15 @@ ALTER TABLE `products`
   ADD KEY `idx_products_category` (`category`);
 
 --
+-- Indexes for table `product_reviews`
+--
+ALTER TABLE `product_reviews`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_product_reviews_business_id` (`business_id`),
+  ADD KEY `idx_product_reviews_business_product` (`business_id`,`product_id`),
+  ADD KEY `idx_product_reviews_business_status_created` (`business_id`,`status`,`created_at`);
+
+--
 -- Indexes for table `users`
 --
 ALTER TABLE `users`
@@ -374,6 +402,12 @@ ALTER TABLE `payment_intents`
 --
 ALTER TABLE `products`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
+
+--
+-- AUTO_INCREMENT for table `product_reviews`
+--
+ALTER TABLE `product_reviews`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `users`

@@ -393,7 +393,7 @@ function finalize_paystack_intent(mysqli $conn, string $reference, array $verifi
         }
         $productStmt->close();
 
-        $tax = round($subtotal * 0.10, 2);
+        $tax = 0.0;
         $shipping = $subtotal > 0 ? 5.0 : 0.0;
         $total = round($subtotal + $tax + $shipping, 2);
 

@@ -302,6 +302,20 @@
             return activeTenant;
         }
 
+        function applyRequestedAuthMode() {
+            const params = new URLSearchParams(window.location.search || '');
+            const mode = String(params.get('mode') || '').toLowerCase().trim();
+            if (mode !== 'register' && mode !== 'login') {
+                return;
+            }
+
+            const targetTabId = mode === 'register' ? 'register-tab' : 'login-tab';
+            const targetTabButton = document.getElementById(targetTabId);
+            if (targetTabButton) {
+                bootstrap.Tab.getOrCreateInstance(targetTabButton).show();
+            }
+        }
+
         async function handleLoginSubmit(event) {
             event.preventDefault();
 
@@ -419,6 +433,7 @@
 
         document.addEventListener('DOMContentLoaded', async function () {
             const activeTenant = loadTenantFromContext();
+            applyRequestedAuthMode();
 
             try {
                 const response = await fetch('../php/session-status.php');

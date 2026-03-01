@@ -234,6 +234,48 @@ try {
         $countStmt->close();
     }
 
+    // Product reviews (if table exists)
+    $reviewsSummary = ['reviews_count' => 0, 'avg_rating' => 0];
+    $recentReviews = [];
+    $hasProductReviewsTable = false;
+    $reviewTableCheck = $conn->query("SHOW TABLES LIKE 'product_reviews'");
+    if ($reviewTableCheck && $reviewTableCheck->num_rows > 0) {
+        $hasProductReviewsTable = true;
+
+        $reviewsKpiStmt = $conn->prepare(
+            "SELECT COUNT(*) AS reviews_count, COALESCE(AVG(rating), 0) AS avg_rating
+             FROM product_reviews
+             WHERE business_id = ? AND status = 'approved'"
+        );
+        $reviewsKpiStmt->bind_param('i', $businessId);
+        $reviewsKpiStmt->execute();
+        $reviewsSummary = $reviewsKpiStmt->get_result()->fetch_assoc() ?: $reviewsSummary;
+        $reviewsKpiStmt->close();
+
+        $recentReviewsStmt = $conn->prepare(
+            "SELECT
+                pr.id,
+                pr.product_id,
+                COALESCE(NULLIF(p.name, ''), CONCAT('Product #', pr.product_id)) AS product_name,
+                pr.reviewer_name,
+                pr.rating,
+                pr.review_text,
+                pr.created_at
+             FROM product_reviews pr
+             LEFT JOIN products p ON p.id = pr.product_id AND p.business_id = pr.business_id
+             WHERE pr.business_id = ? AND pr.status = 'approved'
+             ORDER BY pr.created_at DESC, pr.id DESC
+             LIMIT 8"
+        );
+        $recentReviewsStmt->bind_param('i', $businessId);
+        $recentReviewsStmt->execute();
+        $recentReviewsResult = $recentReviewsStmt->get_result();
+        while ($row = $recentReviewsResult->fetch_assoc()) {
+            $recentReviews[] = $row;
+        }
+        $recentReviewsStmt->close();
+    }
+
     respond(true, '', [
         'range' => [
             'from' => $fromSql,
@@ -247,16 +289,20 @@ try {
             'sales_today' => floatval($todaySummary['sales_today'] ?? 0),
             'products_count' => intval($productSummary['products_count'] ?? 0),
             'units_in_stock' => intval($productSummary['units_in_stock'] ?? 0),
-            'low_stock_count' => count($lowStockProducts)
+            'low_stock_count' => count($lowStockProducts),
+            'reviews_count' => intval($reviewsSummary['reviews_count'] ?? 0),
+            'avg_rating' => round(floatval($reviewsSummary['avg_rating'] ?? 0), 2)
         ],
         'daily_sales' => $dailySales,
         'top_products' => $topProducts,
         'category_sales' => $categorySales,
         'low_stock_products' => $lowStockProducts,
         'recent_sales' => $recentSales,
+        'recent_reviews' => $recentReviews,
         'contact_messages' => $contactMessages,
         'contact_counts' => $contactCounts,
-        'has_contact_messages_table' => $hasContactTable
+        'has_contact_messages_table' => $hasContactTable,
+        'has_product_reviews_table' => $hasProductReviewsTable
     ]);
 } catch (Exception $e) {
     http_response_code(500);

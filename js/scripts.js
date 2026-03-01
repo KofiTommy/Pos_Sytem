@@ -180,9 +180,24 @@ window.clearCartState = clearCartState;
 
 // Update cart count
 function updateCartCount() {
-    const cartCount = document.getElementById('cartCount');
-    if (cartCount) {
-        cartCount.textContent = cart.length;
+    const totalQuantity = cart.reduce((total, item) => {
+        const quantity = Number(item && item.quantity);
+        if (Number.isFinite(quantity) && quantity > 0) {
+            return total + quantity;
+        }
+        // Backward compatibility for any old cart entries without quantity.
+        return total + 1;
+    }, 0);
+    const count = String(totalQuantity);
+    const cartCounters = document.querySelectorAll('[data-cart-count]');
+    cartCounters.forEach((counter) => {
+        counter.textContent = count;
+    });
+
+    // Backward compatibility for pages still using only the legacy id.
+    const legacyCartCount = document.getElementById('cartCount');
+    if (legacyCartCount && !legacyCartCount.hasAttribute('data-cart-count')) {
+        legacyCartCount.textContent = count;
     }
 }
 
@@ -228,6 +243,200 @@ async function updateAdminPortalLink() {
             link.innerHTML = '<i class="fas fa-sign-in-alt"></i> Staff Login';
         }
     });
+}
+
+function getBusinessContext() {
+    return (window.businessContext && typeof window.businessContext === 'object')
+        ? window.businessContext
+        : {};
+}
+
+function hasTenantBusinessContext() {
+    const businessContext = getBusinessContext();
+    return Number(businessContext.id || 0) > 0
+        || sanitizeTenantCode(businessContext.business_code || '') !== '';
+}
+
+function isPlatformContext() {
+    return !activeTenantCode && !hasTenantBusinessContext();
+}
+
+function debounce(callback, delayMs = 250) {
+    let timerId = null;
+    return function debounced(...args) {
+        if (timerId !== null) {
+            clearTimeout(timerId);
+        }
+        timerId = setTimeout(() => callback.apply(this, args), delayMs);
+    };
+}
+
+function updateRegisterBusinessVisibility() {
+    const registerLinks = document.querySelectorAll('[data-register-link]');
+    if (!registerLinks.length) return;
+
+    // Register Business should be shown only on the CediTill main page context.
+    const shouldShowRegister = isPlatformContext();
+    registerLinks.forEach((link) => {
+        link.classList.toggle('d-none', !shouldShowRegister);
+    });
+}
+
+function updatePlatformOnlyVisibility() {
+    const platformOnlyItems = document.querySelectorAll('[data-platform-only]');
+    if (!platformOnlyItems.length) return;
+
+    const shouldShowPlatformOnly = isPlatformContext();
+    platformOnlyItems.forEach((item) => {
+        item.classList.toggle('d-none', !shouldShowPlatformOnly);
+    });
+}
+
+function resolvePublicStatsPath() {
+    const path = String(window.location.pathname || '').toLowerCase();
+    if (path.indexOf('/pages/') !== -1) {
+        return '../php/public-stats.php';
+    }
+    return 'php/public-stats.php';
+}
+
+function resolvePublicBusinessesPath() {
+    const path = String(window.location.pathname || '').toLowerCase();
+    if (path.indexOf('/pages/') !== -1) {
+        return '../php/public-businesses.php';
+    }
+    return 'php/public-businesses.php';
+}
+
+function animateCounterValue(element, targetValue) {
+    const finalValue = Math.max(0, Math.round(Number(targetValue || 0)));
+    if (!Number.isFinite(finalValue) || !element) return;
+
+    const prefersReducedMotion = typeof window.matchMedia === 'function'
+        && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReducedMotion || finalValue <= 20) {
+        element.textContent = finalValue.toLocaleString();
+        return;
+    }
+
+    const durationMs = 900;
+    const startValue = 0;
+    const startTime = performance.now();
+
+    function updateFrame(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / durationMs, 1);
+        const easedProgress = 1 - Math.pow(1 - progress, 3);
+        const currentValue = Math.round(startValue + ((finalValue - startValue) * easedProgress));
+        element.textContent = currentValue.toLocaleString();
+        if (progress < 1) {
+            requestAnimationFrame(updateFrame);
+        }
+    }
+
+    requestAnimationFrame(updateFrame);
+}
+
+async function loadPlatformBusinessCount() {
+    const counters = document.querySelectorAll('[data-platform-business-count]');
+    if (!counters.length || !isPlatformContext()) return;
+
+    try {
+        const response = await fetch(resolvePublicStatsPath(), { cache: 'no-store' });
+        if (!response.ok) return;
+
+        const data = await response.json();
+        if (!data || !data.success) return;
+
+        const registeredBusinesses = Number((data.stats || {}).registered_businesses || 0);
+        counters.forEach((counter) => {
+            animateCounterValue(counter, registeredBusinesses);
+        });
+    } catch (error) {
+        console.warn('Unable to load platform business count:', error);
+    }
+}
+
+let businessDirectoryRequestId = 0;
+
+function createStorefrontUrlFromCode(businessCode) {
+    const safeCode = sanitizeTenantCode(businessCode || '');
+    if (!safeCode) {
+        return 'index.html';
+    }
+    return `index.html?tenant=${encodeURIComponent(safeCode)}`;
+}
+
+function renderBusinessDirectoryResults(host, results, total, query) {
+    if (!host) return;
+
+    const list = Array.isArray(results) ? results : [];
+    const trimmedQuery = String(query || '').trim();
+    if (!list.length) {
+        host.innerHTML = trimmedQuery
+            ? `<p class="text-muted mb-0">No businesses found for "${escapeHtml(trimmedQuery)}".</p>`
+            : '<p class="text-muted mb-0">No businesses available yet.</p>';
+        return;
+    }
+
+    const rows = list.map((business) => {
+        const code = sanitizeTenantCode(business.business_code || '');
+        const name = String(business.business_name || '').trim() || 'Business';
+        const storefrontUrl = createStorefrontUrlFromCode(code);
+        return `
+            <div class="business-directory-item d-flex justify-content-between align-items-center gap-2">
+                <div>
+                    <p class="business-directory-name mb-1">${escapeHtml(name)}</p>
+                    <p class="business-directory-meta mb-0">Code: ${escapeHtml(code)}</p>
+                </div>
+                <a class="btn btn-sm btn-outline-success" href="${escapeHtml(storefrontUrl)}">
+                    <i class="fas fa-arrow-up-right-from-square"></i> Open Store
+                </a>
+            </div>
+        `;
+    }).join('');
+
+    const summaryLine = trimmedQuery
+        ? `<p class="text-muted small mb-2">Showing ${list.length} of ${Number(total || list.length).toLocaleString()} match(es)</p>`
+        : '';
+    host.innerHTML = `${summaryLine}${rows}`;
+}
+
+async function loadBusinessDirectory(query = '') {
+    const host = document.querySelector('[data-business-directory-results]');
+    if (!host || !isPlatformContext()) return;
+
+    const searchQuery = String(query || '').trim().substring(0, 80);
+    const requestId = ++businessDirectoryRequestId;
+    host.innerHTML = '<p class="text-muted mb-0">Searching businesses...</p>';
+
+    try {
+        const baseUrl = resolvePublicBusinessesPath();
+        const url = `${baseUrl}?limit=10${searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : ''}`;
+        const response = await fetch(url, { cache: 'no-store' });
+        if (!response.ok || requestId !== businessDirectoryRequestId) return;
+
+        const data = await response.json();
+        if (!data || !data.success || requestId !== businessDirectoryRequestId) return;
+        renderBusinessDirectoryResults(host, data.results || [], data.total || 0, searchQuery);
+    } catch (error) {
+        if (requestId !== businessDirectoryRequestId) return;
+        host.innerHTML = '<p class="text-muted mb-0">Unable to load business directory right now.</p>';
+    }
+}
+
+function setupBusinessDirectorySearch() {
+    const section = document.querySelector('[data-business-directory-section]');
+    const searchInput = document.querySelector('[data-business-directory-search]');
+    const resultsHost = document.querySelector('[data-business-directory-results]');
+
+    if (!section || !searchInput || !resultsHost || !isPlatformContext()) return;
+    if (section.dataset.initialized === '1') return;
+    section.dataset.initialized = '1';
+
+    const runSearch = debounce(() => loadBusinessDirectory(searchInput.value), 260);
+    searchInput.addEventListener('input', runSearch);
+    loadBusinessDirectory('');
 }
 
 // Add item to cart
@@ -394,8 +603,14 @@ function loadFeaturedProducts() {
                     const productName = escapeHtml(productNameRaw);
                     const productPrice = Number(product.price || 0);
                     const productImage = sanitizeImageFilename(product.image || '') || 'pexels-jonathan-nenemann-12114822.jpg';
-                    const productDescription = escapeHtml(String(product.description || '').substring(0, 60));
+                    const productDescriptionRaw = String(product.description || '').trim();
+                    const productDescription = escapeHtml(productDescriptionRaw.substring(0, 60));
                     const productStock = Number(product.stock || 0);
+                    const ratingAvg = Number(product.rating_avg || 0);
+                    const ratingCount = Number(product.rating_count || 0);
+                    const ratingSummary = ratingCount > 0
+                        ? `${ratingAvg.toFixed(1)} / 5 (${ratingCount})`
+                        : 'No reviews yet';
                     const productNameAttr = escapeHtml(productNameRaw);
                     const productImageAttr = escapeHtml(productImage);
 
@@ -405,10 +620,13 @@ function loadFeaturedProducts() {
                                 <img src="assets/images/${productImage}" class="card-img-top" alt="${productName}" loading="lazy" decoding="async">
                                 <div class="card-body">
                                     <h5 class="card-title">${productName}</h5>
-                                    <p class="card-text text-muted">${productDescription}...</p>
+                                    <p class="card-text text-muted">${productDescriptionRaw ? `${productDescription}...` : 'Quality product available for your store.'}</p>
                                     <div class="d-flex justify-content-between align-items-center">
                                         <span class="product-price">GHS ${productPrice.toFixed(2)}</span>
                                         <span class="badge bg-success">${productStock} in stock</span>
+                                    </div>
+                                    <div class="product-rating small mt-2">
+                                        <i class="fas fa-star"></i> ${escapeHtml(ratingSummary)}
                                     </div>
                                     <button type="button" class="btn btn-primary btn-sm w-100 mt-3" data-product-id="${productId}" data-product-name="${productNameAttr}" data-product-price="${productPrice}" data-product-image="${productImageAttr}" onclick="event.stopPropagation(); addToCartFromElement(this)">
                                         <i class="fas fa-shopping-cart"></i> Add to Cart
@@ -430,9 +648,20 @@ function loadFeaturedProducts() {
 // Initialize cart count on page load
 document.addEventListener('DOMContentLoaded', function () {
     propagateTenantToLinks();
+    updateRegisterBusinessVisibility();
+    updatePlatformOnlyVisibility();
+    loadPlatformBusinessCount();
+    setupBusinessDirectorySearch();
     updateCartCount();
     loadFeaturedProducts();
     updateAdminPortalLink();
+});
+
+window.addEventListener('business-context:loaded', function () {
+    updateRegisterBusinessVisibility();
+    updatePlatformOnlyVisibility();
+    loadPlatformBusinessCount();
+    setupBusinessDirectorySearch();
 });
 
 // Validate email

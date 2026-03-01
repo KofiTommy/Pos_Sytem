@@ -211,6 +211,93 @@
             min-width: 170px;
         }
 
+        .platform-proof-card {
+            border-radius: 20px;
+            padding: 1.15rem 1.25rem;
+            color: #fff;
+            background: linear-gradient(135deg, #0c5f89 0%, #0f766e 60%, #166534 100%);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            box-shadow: 0 16px 30px rgba(12, 95, 137, 0.2);
+        }
+
+        .platform-proof-kicker {
+            margin-bottom: 0.25rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            font-size: 0.78rem;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .platform-proof-value {
+            margin-bottom: 0.35rem;
+            font-size: 1.9rem;
+            font-weight: 800;
+            line-height: 1.12;
+            color: #fff;
+        }
+
+        .platform-proof-value span {
+            display: inline-block;
+            min-width: 2ch;
+        }
+
+        .platform-proof-note {
+            margin-bottom: 0;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .business-directory-card {
+            border: 1px solid #d9e7e3;
+            border-radius: 18px;
+            background: #fff;
+            box-shadow: 0 12px 24px rgba(15, 118, 110, 0.08);
+            padding: 1.1rem;
+        }
+
+        .business-directory-search-wrap {
+            position: relative;
+        }
+
+        .business-directory-search-wrap i {
+            position: absolute;
+            left: 0.85rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #0f766e;
+            pointer-events: none;
+        }
+
+        .business-directory-search {
+            border-radius: 999px;
+            padding-left: 2.45rem;
+            border: 1px solid #c6ddd7;
+        }
+
+        .business-directory-results {
+            margin-top: 1rem;
+            display: grid;
+            gap: 0.7rem;
+        }
+
+        .business-directory-item {
+            border: 1px solid #dce7e3;
+            border-radius: 14px;
+            padding: 0.8rem 0.9rem;
+            background: #f8fcfb;
+        }
+
+        .business-directory-name {
+            font-weight: 700;
+            margin-bottom: 0.2rem;
+            color: #0f172a;
+        }
+
+        .business-directory-meta {
+            color: #5f6b7a;
+            font-size: 0.86rem;
+            margin-bottom: 0;
+        }
+
         @keyframes heroFloat {
 
             0%,
@@ -265,6 +352,18 @@
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
+            <div class="navbar-mobile-auth d-flex d-lg-none w-100 gap-2 mt-2">
+                <a class="btn btn-sm btn-warning flex-fill nav-auth-btn nav-cart-btn" href="pages/cart.html">
+                    <i class="fas fa-shopping-cart"></i> Cart
+                    <span class="badge text-bg-dark ms-1" data-cart-count>0</span>
+                </a>
+                <a class="btn btn-sm btn-outline-primary flex-fill nav-auth-btn" href="pages/login.html" data-admin-link>
+                    <i class="fas fa-sign-in-alt"></i> Staff Login
+                </a>
+                <a class="btn btn-sm btn-primary text-white flex-fill nav-auth-btn" href="pages/login.html?mode=register" data-register-link>
+                    <i class="fas fa-user-plus"></i> Register Business
+                </a>
+            </div>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
@@ -273,16 +372,21 @@
                     <li class="nav-item">
                         <a class="nav-link" href="pages/products.html">Products</a>
                     </li>
-                    <li class="nav-item">
+                    <li class="nav-item d-none d-lg-block">
                         <a class="nav-link" href="pages/cart.html">
                             <i class="fas fa-shopping-cart"></i> Cart <span class="badge bg-danger"
-                                id="cartCount">0</span>
+                                id="cartCount" data-cart-count>0</span>
                         </a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link btn btn-sm btn-primary text-white ms-2" href="pages/login.html"
+                    <li class="nav-item d-none d-lg-block">
+                        <a class="btn btn-sm btn-outline-primary nav-auth-btn ms-lg-2" href="pages/login.html"
                             data-admin-link>
                             <i class="fas fa-sign-in-alt"></i> Staff Login
+                        </a>
+                    </li>
+                    <li class="nav-item d-none d-lg-block">
+                        <a class="btn btn-sm btn-primary text-white nav-auth-btn ms-lg-2" href="pages/login.html?mode=register" data-register-link>
+                            <i class="fas fa-user-plus"></i> Register Business
                         </a>
                     </li>
                 </ul>
@@ -312,6 +416,52 @@
                     <a href="#featured" class="btn btn-outline-light btn-lg">
                         <i class="fas fa-arrow-down"></i> View Featured
                     </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Platform Social Proof -->
+    <section class="bg-light py-4" data-platform-only>
+        <div class="container reveal-up">
+            <div class="platform-proof-card">
+                <div class="row align-items-center g-3">
+                    <div class="col-lg-8">
+                        <p class="platform-proof-kicker">Trusted Network</p>
+                        <h2 class="platform-proof-value"><span data-platform-business-count>0</span>+ businesses running on CediTill</h2>
+                        <p class="platform-proof-note">New merchants join every month to run checkout, inventory, and sales in one place.</p>
+                    </div>
+                    <div class="col-lg-4 text-lg-end">
+                        <a href="pages/login.html?mode=register" class="btn btn-light btn-lg">
+                            <i class="fas fa-user-plus"></i> Join the Network
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Business Directory -->
+    <section class="bg-light pt-0 pb-4" data-platform-only data-business-directory-section>
+        <div class="container reveal-up">
+            <div class="business-directory-card">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                    <h4 class="mb-0"><i class="fas fa-store me-2 text-success"></i>Find Businesses on CediTill</h4>
+                    <span class="text-muted small">Search by business name or code</span>
+                </div>
+                <div class="business-directory-search-wrap">
+                    <i class="fas fa-magnifying-glass"></i>
+                    <input
+                        type="search"
+                        class="form-control business-directory-search"
+                        placeholder="Start typing business name..."
+                        autocomplete="off"
+                        maxlength="80"
+                        data-business-directory-search
+                    >
+                </div>
+                <div class="business-directory-results" data-business-directory-results>
+                    <p class="text-muted mb-0">Loading businesses...</p>
                 </div>
             </div>
         </div>
@@ -468,8 +618,8 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="js/business-info.js?v=20260228-2"></script>
-    <script src="js/scripts.js?v=20260228-2"></script>
+    <script src="js/business-info.js?v=20260301-1"></script>
+    <script src="js/scripts.js?v=20260301-2"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const revealItems = document.querySelectorAll('.reveal-up');

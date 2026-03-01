@@ -243,17 +243,29 @@
         window.dispatchEvent(new CustomEvent('business-info:loaded', { detail: safeInfo }));
     }
 
+    function applyBusinessContext(business) {
+        const source = business && typeof business === 'object' ? business : {};
+        const context = {
+            id: Number(source.id || 0),
+            business_code: sanitizeTenantCode(source.business_code || '')
+        };
+        window.businessContext = context;
+        window.dispatchEvent(new CustomEvent('business-context:loaded', { detail: context }));
+    }
+
     async function loadBusinessInfo() {
         try {
             const response = await fetch(withTenant(resolveApiUrl()), { cache: 'no-store' });
             const data = await response.json();
             if (data && data.success && data.settings) {
+                applyBusinessContext(data.business || {});
                 applyBusinessInfo(data.settings);
                 return;
             }
         } catch (error) {
             console.warn('Business info fetch failed:', error);
         }
+        applyBusinessContext({ id: 0, business_code: '' });
         applyBusinessInfo(DEFAULT_INFO);
     }
 

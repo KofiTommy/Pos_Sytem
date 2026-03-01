@@ -51,18 +51,52 @@ try {
     }
 
     if ($featured) {
-        $sql = "SELECT id, name, description, price, category, image, stock, featured, created_at
-                FROM products
-                WHERE business_id = ? AND featured = 1
-                ORDER BY created_at DESC, id DESC
+        $sql = "SELECT
+                    p.id,
+                    p.name,
+                    p.description,
+                    p.price,
+                    p.category,
+                    p.image,
+                    p.stock,
+                    p.featured,
+                    COALESCE(rv.rating_avg, 0) AS rating_avg,
+                    COALESCE(rv.rating_count, 0) AS rating_count,
+                    p.created_at
+                FROM products p
+                LEFT JOIN (
+                    SELECT business_id, product_id, AVG(rating) AS rating_avg, COUNT(*) AS rating_count
+                    FROM product_reviews
+                    WHERE status = 'approved'
+                    GROUP BY business_id, product_id
+                ) rv ON rv.business_id = p.business_id AND rv.product_id = p.id
+                WHERE p.business_id = ? AND p.featured = 1
+                ORDER BY p.created_at DESC, p.id DESC
                 LIMIT ?, ?";
         $stmt = $conn->prepare($sql);
         $stmt->bind_param('iii', $businessId, $offset, $limit);
     } else {
-        $sql = "SELECT id, name, description, price, category, image, stock, featured, created_at
-                FROM products
-                WHERE business_id = ?
-                ORDER BY created_at DESC, id DESC
+        $sql = "SELECT
+                    p.id,
+                    p.name,
+                    p.description,
+                    p.price,
+                    p.category,
+                    p.image,
+                    p.stock,
+                    p.featured,
+                    COALESCE(rv.rating_avg, 0) AS rating_avg,
+                    COALESCE(rv.rating_count, 0) AS rating_count,
+                    p.created_at
+                FROM products p
+                LEFT JOIN (
+                    SELECT business_id, product_id, AVG(rating) AS rating_avg, COUNT(*) AS rating_count
+                    FROM product_reviews
+                    WHERE status = 'approved'
+                    GROUP BY business_id, product_id
+                ) rv ON rv.business_id = p.business_id AND rv.product_id = p.id
+                WHERE p.business_id = ?
+                ORDER BY p.created_at DESC, p.id DESC
                 LIMIT ?, ?";
         $stmt = $conn->prepare($sql);
         $stmt->bind_param('iii', $businessId, $offset, $limit);
@@ -99,6 +133,8 @@ try {
         $row['price'] = round(floatval($row['price'] ?? 0), 2);
         $row['stock'] = intval($row['stock'] ?? 0);
         $row['featured'] = intval($row['featured'] ?? 0);
+        $row['rating_avg'] = round(floatval($row['rating_avg'] ?? 0), 2);
+        $row['rating_count'] = intval($row['rating_count'] ?? 0);
 
         $products[] = $row;
     };
@@ -112,7 +148,7 @@ try {
             $fetchRow($row);
         }
     } else {
-        $stmt->bind_result($id, $name, $description, $price, $category, $image, $stock, $featuredFlag, $createdAt);
+        $stmt->bind_result($id, $name, $description, $price, $category, $image, $stock, $featuredFlag, $ratingAvg, $ratingCount, $createdAt);
         while ($stmt->fetch()) {
             $fetchRow([
                 'id' => $id,
@@ -123,6 +159,8 @@ try {
                 'image' => $image,
                 'stock' => $stock,
                 'featured' => $featuredFlag,
+                'rating_avg' => $ratingAvg,
+                'rating_count' => $ratingCount,
                 'created_at' => $createdAt
             ]);
         }

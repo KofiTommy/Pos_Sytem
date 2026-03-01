@@ -247,6 +247,15 @@ $currentRole = current_user_role();
                     </div>
                 </div>
             </div>
+            <div class="col-sm-6 col-xl-3">
+                <div class="card kpi-card">
+                    <div class="card-body">
+                        <p class="kpi-label">Product Reviews</p>
+                        <h2 class="kpi-value" id="kpiReviews">0</h2>
+                        <small id="kpiRating" class="text-muted">0.0 avg rating</small>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="row g-3 mb-4">
@@ -368,6 +377,31 @@ $currentRole = current_user_role();
                         </thead>
                         <tbody id="recentSalesRows">
                             <tr><td colspan="6" class="text-muted">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="card section-card mt-4" id="productReviewsSection">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-star me-2"></i>Latest Product Reviews</span>
+                <span class="text-muted small" id="reviewsSummaryLabel">0.0 / 5 average rating</span>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Reviewer</th>
+                                <th>Rating</th>
+                                <th>Review</th>
+                                <th>Created</th>
+                            </tr>
+                        </thead>
+                        <tbody id="productReviewsRows">
+                            <tr><td colspan="5" class="text-muted">Loading...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -505,6 +539,9 @@ $currentRole = current_user_role();
                 .reduce((acc, key) => acc + Number((payload.contact_counts || {})[key] || 0), 0);
             document.getElementById('kpiMessages').textContent = String(totalMessages);
             document.getElementById('kpiUnreadMessages').textContent = `${newMessages} new`;
+            document.getElementById('kpiReviews').textContent = String(k.reviews_count || 0);
+            document.getElementById('kpiRating').textContent = `${Number(k.avg_rating || 0).toFixed(1)} avg rating`;
+            document.getElementById('reviewsSummaryLabel').textContent = `${Number(k.avg_rating || 0).toFixed(1)} / 5 average rating`;
         }
 
         function renderSalesTrend(dailySales) {
@@ -630,6 +667,47 @@ $currentRole = current_user_role();
                     <td>${formatMoney(row.total)}</td>
                     <td><span class="badge ${row.status === 'paid' ? 'bg-success' : 'bg-secondary'}">${esc(row.status)}</span></td>
                     <td>${esc(row.created_at)}</td>
+                </tr>
+            `).join('');
+        }
+
+        function renderRatingStars(value) {
+            const rating = Math.max(0, Math.min(5, Number(value || 0)));
+            const fullStars = Math.round(rating);
+            let stars = '';
+            for (let i = 1; i <= 5; i += 1) {
+                stars += i <= fullStars
+                    ? '<i class="fas fa-star text-warning"></i>'
+                    : '<i class="far fa-star text-warning"></i>';
+            }
+            return stars;
+        }
+
+        function renderProductReviews(payload) {
+            const body = document.getElementById('productReviewsRows');
+            if (!payload.has_product_reviews_table) {
+                body.innerHTML = '<tr><td colspan="5" class="text-muted">Product reviews are not available yet.</td></tr>';
+                return;
+            }
+
+            const rows = payload.recent_reviews || [];
+            if (!rows.length) {
+                body.innerHTML = '<tr><td colspan="5" class="text-muted">No product reviews yet.</td></tr>';
+                return;
+            }
+
+            body.innerHTML = rows.map((row) => `
+                <tr>
+                    <td><strong>${esc(row.product_name || 'Unknown Product')}</strong></td>
+                    <td>${esc(row.reviewer_name || 'Anonymous')}</td>
+                    <td>
+                        <div class="d-flex align-items-center gap-2">
+                            <span>${renderRatingStars(row.rating)}</span>
+                            <small class="text-muted">${Number(row.rating || 0)}/5</small>
+                        </div>
+                    </td>
+                    <td>${esc(row.review_text || '')}</td>
+                    <td>${esc(row.created_at || '')}</td>
                 </tr>
             `).join('');
         }
@@ -790,6 +868,7 @@ $currentRole = current_user_role();
             renderTopProducts(data.top_products || []);
             renderLowStock(data.low_stock_products || []);
             renderRecentSales(data.recent_sales || []);
+            renderProductReviews(data);
             renderContactMessages(data);
         }
 

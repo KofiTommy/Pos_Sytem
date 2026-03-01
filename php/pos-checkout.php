@@ -44,7 +44,7 @@ try {
     $notes = clean_text_input($payload['notes'] ?? '', 1000);
     $paymentMethod = strtolower(clean_text_input($payload['payment_method'] ?? 'cash', 40));
     $cashReceived = isset($payload['cash_received']) ? floatval($payload['cash_received']) : 0;
-    $taxRate = isset($payload['tax_rate']) ? floatval($payload['tax_rate']) : 10;
+    $taxRate = isset($payload['tax_rate']) ? floatval($payload['tax_rate']) : 0;
     $discountAmount = isset($payload['discount_amount']) ? floatval($payload['discount_amount']) : 0;
     $items = isset($payload['items']) && is_array($payload['items']) ? $payload['items'] : [];
     $staffUserId = intval($_SESSION['user_id'] ?? 0);

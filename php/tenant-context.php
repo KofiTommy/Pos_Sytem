@@ -64,6 +64,7 @@ function tenant_is_multitenant_schema_ready(mysqli $conn): bool {
              OR (TABLE_NAME = 'business_settings' AND COLUMN_NAME = 'footer_note')
              OR (TABLE_NAME = 'payment_intents' AND COLUMN_NAME = 'business_id')
              OR (TABLE_NAME = 'payment_gateway_settings' AND COLUMN_NAME = 'business_id')
+             OR (TABLE_NAME = 'product_reviews' AND COLUMN_NAME = 'business_id')
            )"
     );
     $stmt->execute();
@@ -88,7 +89,7 @@ function tenant_is_multitenant_schema_ready(mysqli $conn): bool {
     $indexStmt->close();
 
     $hasProductPerformanceIndexes = intval($indexRow['total'] ?? 0) >= 5;
-    $isReady = intval($row['total'] ?? 0) >= 11 && $hasProductPerformanceIndexes;
+    $isReady = intval($row['total'] ?? 0) >= 12 && $hasProductPerformanceIndexes;
     tenant_multitenant_schema_cached($isReady);
     return $isReady;
 }
@@ -526,6 +527,33 @@ function ensure_multitenant_schema(mysqli $conn): void {
               AND t_old.id < t_new.id"
         );
         run_tenant_schema_query($conn, "ALTER TABLE payment_gateway_settings ADD UNIQUE KEY uk_payment_gateway_business_id (business_id)");
+    }
+
+    $conn->query(
+        "CREATE TABLE IF NOT EXISTS product_reviews (
+            id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            business_id INT NOT NULL,
+            product_id INT NOT NULL,
+            reviewer_name VARCHAR(120) NOT NULL,
+            reviewer_email VARCHAR(160) NOT NULL DEFAULT '',
+            rating TINYINT UNSIGNED NOT NULL,
+            review_text TEXT NOT NULL,
+            status VARCHAR(20) NOT NULL DEFAULT 'approved',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+    );
+
+    if (tenant_table_exists($conn, 'product_reviews')) {
+        run_tenant_schema_query($conn, "ALTER TABLE product_reviews ADD COLUMN business_id INT NULL AFTER id");
+        $updateStmt = $conn->prepare("UPDATE product_reviews SET business_id = ? WHERE business_id IS NULL OR business_id = 0");
+        $updateStmt->bind_param('i', $defaultBusinessId);
+        $updateStmt->execute();
+        $updateStmt->close();
+        run_tenant_schema_query($conn, "ALTER TABLE product_reviews MODIFY business_id INT NOT NULL", [1265]);
+        run_tenant_schema_query($conn, "ALTER TABLE product_reviews ADD INDEX idx_product_reviews_business_id (business_id)");
+        run_tenant_schema_query($conn, "ALTER TABLE product_reviews ADD INDEX idx_product_reviews_business_product (business_id, product_id)");
+        run_tenant_schema_query($conn, "ALTER TABLE product_reviews ADD INDEX idx_product_reviews_business_status_created (business_id, status, created_at)");
     }
 
     tenant_ensure_business_settings_row($conn, $defaultBusinessId, $defaultName, $defaultEmail, $defaultPhone);

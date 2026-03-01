@@ -117,7 +117,7 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html' . $tenantQuery;
                         <div class="row g-2 mb-3">
                             <div class="col-6">
                                 <label class="form-label">Tax Rate (%)</label>
-                                <input id="taxRate" class="form-control" type="number" min="0" max="100" step="0.01" value="10">
+                                <input id="taxRate" class="form-control" type="number" min="0" max="100" step="0.01" value="0">
                             </div>
                             <div class="col-6">
                                 <label class="form-label">Discount</label>
@@ -129,7 +129,7 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html' . $tenantQuery;
                         <hr>
                         <div class="d-flex justify-content-between"><span>Subtotal</span><strong id="subtotal">GHS 0.00</strong></div>
                         <div class="d-flex justify-content-between"><span>Discount</span><strong id="discount">GHS 0.00</strong></div>
-                        <div class="d-flex justify-content-between"><span id="taxLabel">Tax (10%)</span><strong id="tax">GHS 0.00</strong></div>
+                        <div class="d-flex justify-content-between"><span id="taxLabel">Tax (0%)</span><strong id="tax">GHS 0.00</strong></div>
                         <div class="d-flex justify-content-between mb-2"><span>Total</span><strong id="total">GHS 0.00</strong></div>
                         <div class="d-flex justify-content-between mb-3"><span>Change</span><strong id="changeDue">GHS 0.00</strong></div>
                         <button id="checkoutBtn" class="btn btn-success w-100 mb-2">

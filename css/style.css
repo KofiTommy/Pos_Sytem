@@ -107,6 +107,25 @@ a:hover {
     color: var(--mc-primary) !important;
 }
 
+.nav-auth-btn {
+    border-radius: 999px;
+    font-weight: 600;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.45rem 0.9rem;
+}
+
+.nav-auth-btn i {
+    margin-right: 0.35rem;
+}
+
+.nav-cart-btn .badge {
+    min-width: 1.45rem;
+    border-radius: 999px;
+}
+
 /* Hero section */
 .hero-section {
     background: linear-gradient(130deg, var(--mc-hero-start) 0%, var(--mc-hero-mid) 55%, var(--mc-hero-end) 100%);
@@ -571,6 +590,14 @@ footer a:hover {
 @media (max-width: 576px) {
     .navbar-brand {
         font-size: 1.15rem;
+    }
+
+    .navbar-mobile-auth {
+        flex-direction: column;
+    }
+
+    .navbar-mobile-auth .nav-auth-btn {
+        width: 100%;
     }
 
     .product-price {
