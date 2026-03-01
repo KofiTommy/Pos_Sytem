@@ -43,9 +43,9 @@ try {
             "SELECT COUNT(*) AS total
              FROM businesses
              WHERE status = 'active'
-               AND (business_name LIKE ? OR business_code LIKE ?)"
+               AND business_name LIKE ?"
         );
-        $countStmt->bind_param('ss', $like, $like);
+        $countStmt->bind_param('s', $like);
         $countStmt->execute();
         $countRow = $countStmt->get_result()->fetch_assoc() ?: [];
         $countStmt->close();
@@ -55,17 +55,16 @@ try {
             "SELECT business_code, business_name
              FROM businesses
              WHERE status = 'active'
-               AND (business_name LIKE ? OR business_code LIKE ?)
+               AND business_name LIKE ?
              ORDER BY
                CASE
                  WHEN business_name LIKE ? THEN 0
-                 WHEN business_code LIKE ? THEN 1
-                 ELSE 2
+                 ELSE 1
                END,
                business_name ASC
              LIMIT ?"
         );
-        $searchStmt->bind_param('ssssi', $like, $like, $prefix, $prefix, $limit);
+        $searchStmt->bind_param('ssi', $like, $prefix, $limit);
         $searchStmt->execute();
         $searchResult = $searchStmt->get_result();
         while ($row = $searchResult->fetch_assoc()) {

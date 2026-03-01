@@ -387,7 +387,6 @@ function renderBusinessDirectoryResults(host, results, total, query) {
             <div class="business-directory-item d-flex justify-content-between align-items-center gap-2">
                 <div>
                     <p class="business-directory-name mb-1">${escapeHtml(name)}</p>
-                    <p class="business-directory-meta mb-0">Code: ${escapeHtml(code)}</p>
                 </div>
                 <a class="btn btn-sm btn-outline-success" href="${escapeHtml(storefrontUrl)}">
                     <i class="fas fa-arrow-up-right-from-square"></i> Open Store
