@@ -298,6 +298,54 @@
             margin-bottom: 0;
         }
 
+        .featured-products-scroller {
+            display: flex;
+            gap: 1rem;
+            overflow-x: auto;
+            scroll-behavior: smooth;
+            scroll-snap-type: x mandatory;
+            padding: 0.1rem 0.15rem 0.45rem;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(15, 118, 110, 0.5) rgba(15, 118, 110, 0.1);
+        }
+
+        .featured-products-scroller::-webkit-scrollbar {
+            height: 8px;
+        }
+
+        .featured-products-scroller::-webkit-scrollbar-track {
+            background: rgba(15, 118, 110, 0.1);
+            border-radius: 999px;
+        }
+
+        .featured-products-scroller::-webkit-scrollbar-thumb {
+            background: rgba(15, 118, 110, 0.5);
+            border-radius: 999px;
+        }
+
+        .featured-products-scroller-item {
+            flex: 0 0 calc(33.333% - 0.7rem);
+            min-width: 255px;
+            scroll-snap-align: start;
+        }
+
+        .featured-products-scroller-item .product-card {
+            height: 100%;
+        }
+
+        @media (max-width: 991.98px) {
+            .featured-products-scroller-item {
+                flex-basis: calc(50% - 0.5rem);
+            }
+        }
+
+        @media (max-width: 575.98px) {
+            .featured-products-scroller-item {
+                flex-basis: 84%;
+                min-width: 220px;
+            }
+        }
+
         @keyframes heroFloat {
 
             0%,
@@ -343,7 +391,7 @@
     <nav class="navbar navbar-expand-lg navbar-light bg-light shadow-sm sticky-top">
         <div class="container">
             <a class="navbar-brand fw-bold" href="index.html">
-                <span class="ceditill-brand-mark" aria-hidden="true">
+                <span class="ceditill-brand-mark" data-platform-brand-mark aria-hidden="true">
                     <i class="fas fa-cash-register"></i>
                 </span>
                 <img data-business-logo class="d-none me-1" style="height: 30px; width: auto;" alt="Business logo">
@@ -468,7 +516,7 @@
     </section>
 
     <!-- Advertising Banner -->
-    <section class="bg-light pb-4">
+    <section class="bg-light pb-4" data-platform-only>
         <div class="container reveal-up">
             <div class="promo-banner-card">
                 <div class="row align-items-center g-3">
@@ -496,7 +544,7 @@
     <!-- Featured Products Section -->
     <section id="featured" class="py-5 bg-light">
         <div class="container reveal-up">
-            <h2 class="text-center mb-5 fw-bold">Featured POS Solutions</h2>
+            <h2 class="text-center mb-5 fw-bold" data-featured-section-title>Featured POS Solutions</h2>
             <div class="row" id="featuredProducts">
                 <div class="col-md-4 mb-4">
                     <div class="placeholder-glow">

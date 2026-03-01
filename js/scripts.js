@@ -292,6 +292,12 @@ function updatePlatformOnlyVisibility() {
     });
 }
 
+function updateFeaturedSectionTitle() {
+    const heading = document.querySelector('[data-featured-section-title]');
+    if (!heading) return;
+    heading.textContent = isPlatformContext() ? 'Featured POS Solutions' : 'Featured Products';
+}
+
 function resolvePublicStatsPath() {
     const path = String(window.location.pathname || '').toLowerCase();
     if (path.indexOf('/pages/') !== -1) {
@@ -358,6 +364,8 @@ async function loadPlatformBusinessCount() {
 }
 
 let businessDirectoryRequestId = 0;
+let featuredProductsRequestId = 0;
+let featuredProductsAutoScrollTimer = 0;
 
 function createStorefrontUrlFromCode(businessCode) {
     const safeCode = sanitizeTenantCode(businessCode || '');
@@ -530,6 +538,7 @@ function showError(message) {
 
 // Load featured products on landing page
 function renderDefaultFeaturedSolutions(container) {
+    stopFeaturedProductsAutoScroll();
     const contactHref = withTenantQuery('pages/contact.html');
     const productsHref = withTenantQuery('pages/products.html');
     const solutions = [
@@ -578,69 +587,186 @@ function renderDefaultFeaturedSolutions(container) {
     `).join('');
 }
 
+function buildTenantFeaturedProductCard(product, wrapperClass = 'col-md-4 mb-4') {
+    const productId = Number(product.id || 0);
+    const productNameRaw = String(product.name || '');
+    const productName = escapeHtml(productNameRaw);
+    const productPrice = Number(product.price || 0);
+    const productImage = sanitizeImageFilename(product.image || '') || 'pexels-jonathan-nenemann-12114822.jpg';
+    const productDescriptionRaw = String(product.description || '').trim();
+    const productDescription = escapeHtml(productDescriptionRaw.substring(0, 60));
+    const productStock = Number(product.stock || 0);
+    const ratingAvg = Number(product.rating_avg || 0);
+    const ratingCount = Number(product.rating_count || 0);
+    const ratingSummary = ratingCount > 0
+        ? `${ratingAvg.toFixed(1)} / 5 (${ratingCount})`
+        : 'No reviews yet';
+    const productNameAttr = escapeHtml(productNameRaw);
+    const productImageAttr = escapeHtml(productImage);
+
+    return `
+        <div class="${wrapperClass}">
+            <div class="card product-card product-card-clickable" role="button" tabindex="0" aria-label="Add ${productName} to cart" data-product-id="${productId}" data-product-name="${productNameAttr}" data-product-price="${productPrice}" data-product-image="${productImageAttr}" onclick="addToCartFromElement(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();addToCartFromElement(this);}">
+                <img src="assets/images/${productImage}" class="card-img-top" alt="${productName}" loading="lazy" decoding="async">
+                <div class="card-body">
+                    <h5 class="card-title">${productName}</h5>
+                    <p class="card-text text-muted">${productDescriptionRaw ? `${productDescription}...` : 'Quality product available for your store.'}</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="product-price">GHS ${productPrice.toFixed(2)}</span>
+                        <span class="badge bg-success">${productStock} in stock</span>
+                    </div>
+                    <div class="product-rating small mt-2">
+                        <i class="fas fa-star"></i> ${escapeHtml(ratingSummary)}
+                    </div>
+                    <button type="button" class="btn btn-primary btn-sm w-100 mt-3" data-product-id="${productId}" data-product-name="${productNameAttr}" data-product-price="${productPrice}" data-product-image="${productImageAttr}" onclick="event.stopPropagation(); addToCartFromElement(this)">
+                        <i class="fas fa-shopping-cart"></i> Add to Cart
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function renderTenantFeaturedProducts(container, products) {
+    stopFeaturedProductsAutoScroll();
+    const list = Array.isArray(products) ? products : [];
+    if (!list.length) {
+        container.innerHTML = `
+            <div class="col-12">
+                <div class="alert alert-light border text-muted mb-0">No featured products available yet.</div>
+            </div>
+        `;
+        return;
+    }
+
+    if (list.length <= 3) {
+        container.innerHTML = list.map((product) => buildTenantFeaturedProductCard(product)).join('');
+        return;
+    }
+
+    container.innerHTML = `
+        <div class="col-12">
+            <div class="featured-products-scroller" data-featured-products-scroller>
+                ${list.map((product) => buildTenantFeaturedProductCard(product, 'featured-products-scroller-item')).join('')}
+            </div>
+        </div>
+    `;
+    startFeaturedProductsAutoScroll(container);
+}
+
+function stopFeaturedProductsAutoScroll() {
+    if (featuredProductsAutoScrollTimer) {
+        window.clearInterval(featuredProductsAutoScrollTimer);
+        featuredProductsAutoScrollTimer = 0;
+    }
+}
+
+function startFeaturedProductsAutoScroll(container) {
+    const scroller = container ? container.querySelector('[data-featured-products-scroller]') : null;
+    if (!scroller) return;
+
+    const reducedMotion = typeof window.matchMedia === 'function'
+        && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reducedMotion) return;
+
+    const runStep = () => {
+        const maxScrollLeft = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
+        if (maxScrollLeft <= 2) return;
+
+        const firstCard = scroller.querySelector('.featured-products-scroller-item');
+        const cardWidth = firstCard
+            ? Math.ceil(firstCard.getBoundingClientRect().width + 16)
+            : Math.ceil(scroller.clientWidth * 0.82);
+        let nextLeft = scroller.scrollLeft + cardWidth;
+        if (nextLeft >= maxScrollLeft - 2) {
+            nextLeft = 0;
+        }
+        scroller.scrollTo({ left: nextLeft, behavior: 'smooth' });
+    };
+
+    stopFeaturedProductsAutoScroll();
+    featuredProductsAutoScrollTimer = window.setInterval(runStep, 3000);
+
+    if (scroller.dataset.autoScrollBound === '1') {
+        return;
+    }
+    scroller.dataset.autoScrollBound = '1';
+
+    scroller.addEventListener('mouseenter', stopFeaturedProductsAutoScroll, { passive: true });
+    scroller.addEventListener('focusin', stopFeaturedProductsAutoScroll, { passive: true });
+    scroller.addEventListener('mouseleave', () => {
+        if (!featuredProductsAutoScrollTimer) {
+            featuredProductsAutoScrollTimer = window.setInterval(runStep, 3000);
+        }
+    }, { passive: true });
+    scroller.addEventListener('focusout', () => {
+        if (!featuredProductsAutoScrollTimer) {
+            featuredProductsAutoScrollTimer = window.setInterval(runStep, 3000);
+        }
+    }, { passive: true });
+}
+
+function renderFeaturedProductsLoadingState(container) {
+    if (!container) return;
+    stopFeaturedProductsAutoScroll();
+    container.innerHTML = `
+        <div class="col-12">
+            <p class="text-muted text-center mb-0">Loading featured products...</p>
+        </div>
+    `;
+}
+
 function loadFeaturedProducts() {
     const featuredProductsDiv = document.getElementById('featuredProducts');
     if (!featuredProductsDiv) return;
 
     const showDefaultSolutions = () => renderDefaultFeaturedSolutions(featuredProductsDiv);
+    const hasTenantContext = !!activeTenantCode || hasTenantBusinessContext();
+    const requestedMode = hasTenantContext ? 'tenant' : 'platform';
 
-    if (!activeTenantCode) {
+    if (featuredProductsDiv.dataset.loading === '1' && featuredProductsDiv.dataset.mode === requestedMode) {
+        return;
+    }
+    featuredProductsDiv.dataset.mode = requestedMode;
+
+    if (!hasTenantContext) {
+        featuredProductsDiv.dataset.loading = '0';
         showDefaultSolutions();
         return;
     }
 
-    // Render fallback cards immediately while tenant products are loading.
-    showDefaultSolutions();
+    renderFeaturedProductsLoadingState(featuredProductsDiv);
+    featuredProductsDiv.dataset.loading = '1';
+    const requestId = ++featuredProductsRequestId;
 
-    fetch(withTenantQuery('php/get-products.php?limit=3&featured=1'))
+    fetch(withTenantQuery('php/get-products.php?limit=12&featured=1'))
         .then((response) => response.json())
         .then((data) => {
-            if (data.success && data.products.length > 0) {
-                const cards = data.products.map((product) => {
-                    const productId = Number(product.id || 0);
-                    const productNameRaw = String(product.name || '');
-                    const productName = escapeHtml(productNameRaw);
-                    const productPrice = Number(product.price || 0);
-                    const productImage = sanitizeImageFilename(product.image || '') || 'pexels-jonathan-nenemann-12114822.jpg';
-                    const productDescriptionRaw = String(product.description || '').trim();
-                    const productDescription = escapeHtml(productDescriptionRaw.substring(0, 60));
-                    const productStock = Number(product.stock || 0);
-                    const ratingAvg = Number(product.rating_avg || 0);
-                    const ratingCount = Number(product.rating_count || 0);
-                    const ratingSummary = ratingCount > 0
-                        ? `${ratingAvg.toFixed(1)} / 5 (${ratingCount})`
-                        : 'No reviews yet';
-                    const productNameAttr = escapeHtml(productNameRaw);
-                    const productImageAttr = escapeHtml(productImage);
-
-                    return `
-                        <div class="col-md-4 mb-4">
-                            <div class="card product-card product-card-clickable" role="button" tabindex="0" aria-label="Add ${productName} to cart" data-product-id="${productId}" data-product-name="${productNameAttr}" data-product-price="${productPrice}" data-product-image="${productImageAttr}" onclick="addToCartFromElement(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();addToCartFromElement(this);}">
-                                <img src="assets/images/${productImage}" class="card-img-top" alt="${productName}" loading="lazy" decoding="async">
-                                <div class="card-body">
-                                    <h5 class="card-title">${productName}</h5>
-                                    <p class="card-text text-muted">${productDescriptionRaw ? `${productDescription}...` : 'Quality product available for your store.'}</p>
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <span class="product-price">GHS ${productPrice.toFixed(2)}</span>
-                                        <span class="badge bg-success">${productStock} in stock</span>
-                                    </div>
-                                    <div class="product-rating small mt-2">
-                                        <i class="fas fa-star"></i> ${escapeHtml(ratingSummary)}
-                                    </div>
-                                    <button type="button" class="btn btn-primary btn-sm w-100 mt-3" data-product-id="${productId}" data-product-name="${productNameAttr}" data-product-price="${productPrice}" data-product-image="${productImageAttr}" onclick="event.stopPropagation(); addToCartFromElement(this)">
-                                        <i class="fas fa-shopping-cart"></i> Add to Cart
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                });
-                featuredProductsDiv.innerHTML = cards.join('');
+            if (requestId !== featuredProductsRequestId) return;
+            if (data && data.success && Array.isArray(data.products) && data.products.length > 0) {
+                renderTenantFeaturedProducts(featuredProductsDiv, data.products);
+                featuredProductsDiv.dataset.loading = '0';
+                return;
             }
+
+            // If owner has no featured items set, show latest products so storefront stays useful.
+            return fetch(withTenantQuery('php/get-products.php?limit=12'))
+                .then((response) => response.json())
+                .then((fallbackData) => {
+                    if (requestId !== featuredProductsRequestId) return;
+                    if (fallbackData && fallbackData.success) {
+                        renderTenantFeaturedProducts(featuredProductsDiv, fallbackData.products || []);
+                    } else {
+                        renderTenantFeaturedProducts(featuredProductsDiv, []);
+                    }
+                    featuredProductsDiv.dataset.loading = '0';
+                });
         })
         .catch((error) => {
+            if (requestId !== featuredProductsRequestId) return;
             console.error('Error loading products:', error);
-            showDefaultSolutions();
+            renderTenantFeaturedProducts(featuredProductsDiv, []);
+            featuredProductsDiv.dataset.loading = '0';
         });
 }
 
@@ -649,6 +775,7 @@ document.addEventListener('DOMContentLoaded', function () {
     propagateTenantToLinks();
     updateRegisterBusinessVisibility();
     updatePlatformOnlyVisibility();
+    updateFeaturedSectionTitle();
     loadPlatformBusinessCount();
     setupBusinessDirectorySearch();
     updateCartCount();
@@ -659,8 +786,10 @@ document.addEventListener('DOMContentLoaded', function () {
 window.addEventListener('business-context:loaded', function () {
     updateRegisterBusinessVisibility();
     updatePlatformOnlyVisibility();
+    updateFeaturedSectionTitle();
     loadPlatformBusinessCount();
     setupBusinessDirectorySearch();
+    loadFeaturedProducts();
 });
 
 // Validate email

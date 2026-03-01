@@ -60,8 +60,12 @@ $isOwner = $currentRole === 'owner';
         <div class="card border-0 shadow-sm mb-4">
             <div class="card-body d-flex flex-wrap gap-2 align-items-end">
                 <div>
-                    <label for="dateFilter" class="form-label">Date</label>
-                    <input type="date" id="dateFilter" class="form-control">
+                    <label for="startDateFilter" class="form-label">Start Date</label>
+                    <input type="date" id="startDateFilter" class="form-control">
+                </div>
+                <div>
+                    <label for="endDateFilter" class="form-label">End Date</label>
+                    <input type="date" id="endDateFilter" class="form-control">
                 </div>
                 <button id="loadSalesBtn" class="btn btn-primary">Load Sales</button>
             </div>
@@ -198,8 +202,20 @@ $isOwner = $currentRole === 'owner';
         }
 
         async function loadSales() {
-            const date = document.getElementById('dateFilter').value;
-            const response = await fetch(`../../php/pos-sales.php?date=${encodeURIComponent(date)}`);
+            const startDate = document.getElementById('startDateFilter').value;
+            const endDate = document.getElementById('endDateFilter').value;
+            if (!startDate || !endDate) {
+                throw new Error('Please choose both start and end date.');
+            }
+            if (startDate > endDate) {
+                throw new Error('Start date cannot be after end date.');
+            }
+
+            const params = new URLSearchParams({
+                start_date: startDate,
+                end_date: endDate
+            });
+            const response = await fetch(`../../php/pos-sales.php?${params.toString()}`);
             const data = await response.json();
             if (!data.success) {
                 throw new Error(data.message || 'Failed to load sales');
@@ -210,7 +226,7 @@ $isOwner = $currentRole === 'owner';
 
             const rows = document.getElementById('salesRows');
             if (!data.sales.length) {
-                rows.innerHTML = '<tr><td colspan="9" class="text-muted">No sales found for this date.</td></tr>';
+                rows.innerHTML = '<tr><td colspan="9" class="text-muted">No sales found for this date range.</td></tr>';
                 return;
             }
 
@@ -531,7 +547,9 @@ $isOwner = $currentRole === 'owner';
         document.getElementById('editSaleForm').addEventListener('submit', saveSaleEdits);
 
         editSaleModal = new bootstrap.Modal(document.getElementById('editSaleModal'));
-        document.getElementById('dateFilter').value = new Date().toISOString().slice(0, 10);
+        const today = new Date().toISOString().slice(0, 10);
+        document.getElementById('startDateFilter').value = today;
+        document.getElementById('endDateFilter').value = today;
         loadSales().catch((error) => alert(error.message));
     </script>
 </body>

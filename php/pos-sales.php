@@ -15,6 +15,29 @@ function respond($success, $message = '', $extra = []) {
     exit();
 }
 
+function parse_ymd_date($rawDate) {
+    $date = trim((string)$rawDate);
+    if ($date === '') {
+        return null;
+    }
+
+    $dateObj = DateTime::createFromFormat('Y-m-d', $date);
+    if (!$dateObj) {
+        return null;
+    }
+
+    $errors = DateTime::getLastErrors();
+    if (is_array($errors) && (($errors['warning_count'] ?? 0) > 0 || ($errors['error_count'] ?? 0) > 0)) {
+        return null;
+    }
+
+    if ($dateObj->format('Y-m-d') !== $date) {
+        return null;
+    }
+
+    return $dateObj;
+}
+
 try {
     ensure_payment_schema($conn);
     ensure_staff_tracking_schema($conn);
@@ -169,14 +192,40 @@ try {
         ]);
     }
 
-    $date = isset($_GET['date']) ? trim($_GET['date']) : date('Y-m-d');
-    $dateObj = DateTime::createFromFormat('Y-m-d', $date);
-    if (!$dateObj) {
-        $dateObj = new DateTime('today');
-        $date = $dateObj->format('Y-m-d');
+    $startDateRaw = isset($_GET['start_date']) ? trim((string)$_GET['start_date']) : '';
+    $endDateRaw = isset($_GET['end_date']) ? trim((string)$_GET['end_date']) : '';
+    $legacyDateRaw = isset($_GET['date']) ? trim((string)$_GET['date']) : '';
+
+    $startDateObj = null;
+    $endDateObj = null;
+
+    if ($startDateRaw !== '' || $endDateRaw !== '') {
+        if ($startDateRaw === '' || $endDateRaw === '') {
+            respond(false, 'Both start and end date are required');
+        }
+
+        $startDateObj = parse_ymd_date($startDateRaw);
+        $endDateObj = parse_ymd_date($endDateRaw);
+        if (!$startDateObj || !$endDateObj) {
+            respond(false, 'Invalid date format. Use YYYY-MM-DD');
+        }
+
+        if ($startDateObj > $endDateObj) {
+            respond(false, 'Start date cannot be after end date');
+        }
+    } else {
+        $singleDateObj = parse_ymd_date($legacyDateRaw);
+        if (!$singleDateObj) {
+            $singleDateObj = new DateTime('today');
+        }
+        $startDateObj = $singleDateObj;
+        $endDateObj = clone $singleDateObj;
     }
-    $rangeStart = $dateObj->format('Y-m-d') . ' 00:00:00';
-    $rangeEnd = (clone $dateObj)->modify('+1 day')->format('Y-m-d') . ' 00:00:00';
+
+    $startDate = $startDateObj->format('Y-m-d');
+    $endDate = $endDateObj->format('Y-m-d');
+    $rangeStart = $startDate . ' 00:00:00';
+    $rangeEnd = (clone $endDateObj)->modify('+1 day')->format('Y-m-d') . ' 00:00:00';
     $limit = isset($_GET['limit']) ? intval($_GET['limit']) : 100;
     if ($limit <= 0) {
         $limit = 100;
@@ -213,7 +262,9 @@ try {
     $sumStmt->close();
 
     respond(true, '', [
-        'date' => $date,
+        'date' => $startDate,
+        'start_date' => $startDate,
+        'end_date' => $endDate,
         'sales' => $sales,
         'summary' => $summary
     ]);

@@ -238,6 +238,13 @@
             }
             el.classList.remove('d-none');
         });
+        document.querySelectorAll('[data-platform-brand-mark]').forEach((el) => {
+            if (logoUrl) {
+                el.classList.add('d-none');
+            } else {
+                el.classList.remove('d-none');
+            }
+        });
 
         window.businessInfo = safeInfo;
         window.dispatchEvent(new CustomEvent('business-info:loaded', { detail: safeInfo }));

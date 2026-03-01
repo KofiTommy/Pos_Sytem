@@ -65,16 +65,16 @@ try {
                     p.created_at
                 FROM products p
                 LEFT JOIN (
-                    SELECT business_id, product_id, AVG(rating) AS rating_avg, COUNT(*) AS rating_count
+                    SELECT product_id, AVG(rating) AS rating_avg, COUNT(*) AS rating_count
                     FROM product_reviews
-                    WHERE status = 'approved'
-                    GROUP BY business_id, product_id
-                ) rv ON rv.business_id = p.business_id AND rv.product_id = p.id
+                    WHERE status = 'approved' AND business_id = ?
+                    GROUP BY product_id
+                ) rv ON rv.product_id = p.id
                 WHERE p.business_id = ? AND p.featured = 1
                 ORDER BY p.created_at DESC, p.id DESC
                 LIMIT ?, ?";
         $stmt = $conn->prepare($sql);
-        $stmt->bind_param('iii', $businessId, $offset, $limit);
+        $stmt->bind_param('iiii', $businessId, $businessId, $offset, $limit);
     } else {
         $sql = "SELECT
                     p.id,
@@ -90,16 +90,16 @@ try {
                     p.created_at
                 FROM products p
                 LEFT JOIN (
-                    SELECT business_id, product_id, AVG(rating) AS rating_avg, COUNT(*) AS rating_count
+                    SELECT product_id, AVG(rating) AS rating_avg, COUNT(*) AS rating_count
                     FROM product_reviews
-                    WHERE status = 'approved'
-                    GROUP BY business_id, product_id
-                ) rv ON rv.business_id = p.business_id AND rv.product_id = p.id
+                    WHERE status = 'approved' AND business_id = ?
+                    GROUP BY product_id
+                ) rv ON rv.product_id = p.id
                 WHERE p.business_id = ?
                 ORDER BY p.created_at DESC, p.id DESC
                 LIMIT ?, ?";
         $stmt = $conn->prepare($sql);
-        $stmt->bind_param('iii', $businessId, $offset, $limit);
+        $stmt->bind_param('iiii', $businessId, $businessId, $offset, $limit);
     }
 
     $stmt->execute();
