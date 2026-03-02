@@ -146,35 +146,88 @@ function escapeHtml(value) {
 }
 
 function sanitizeImageFilename(value) {
-    return String(value ?? '').replace(/[^a-zA-Z0-9._-]/g, '');
+    const raw = String(value ?? '').trim().replace(/\\/g, '/');
+    const withoutQuery = raw.split('?')[0].split('#')[0];
+    const base = withoutQuery.split('/').pop() || '';
+    return base.replace(/[\x00-\x1F\x7F]/g, '').substring(0, 255);
 }
 
 const PRODUCT_DEFAULT_IMAGE_FILE = 'pexels-jonathan-nenemann-12114822.jpg';
+const PRODUCT_IMAGE_CACHE_VERSION = '20260302-5';
 const PRODUCT_INLINE_FALLBACK_IMAGE = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500"><rect width="800" height="500" fill="#eef4f3"/><g fill="#6b7280" font-family="Segoe UI,Arial,sans-serif" text-anchor="middle"><text x="400" y="240" font-size="34" font-weight="700">Image unavailable</text><text x="400" y="282" font-size="20">Please check back later</text></g></svg>'
 )}`;
 
-function resolveProductImagePath(filename) {
-    const safeName = sanitizeImageFilename(filename || '') || PRODUCT_DEFAULT_IMAGE_FILE;
-    const path = String(window.location.pathname || '').toLowerCase();
-    if (path.indexOf('/pages/') !== -1) {
-        return `../assets/images/${safeName}`;
+function detectAppBasePath() {
+    try {
+        const scripts = Array.from(document.querySelectorAll('script[src]'));
+        for (let i = scripts.length - 1; i >= 0; i -= 1) {
+            const src = String(scripts[i].getAttribute('src') || '');
+            if (!/js\/scripts\.js(?:[?#].*)?$/i.test(src)) continue;
+            const absolute = new URL(src, window.location.href);
+            const pathname = String(absolute.pathname || '');
+            const marker = '/js/scripts.js';
+            const index = pathname.toLowerCase().lastIndexOf(marker);
+            if (index < 0) continue;
+            const base = pathname.substring(0, index).replace(/\/+$/, '');
+            return base || '';
+        }
+    } catch (error) {
+        // Ignore script URL parsing failures.
     }
-    return `assets/images/${safeName}`;
+    return '';
+}
+
+const APP_BASE_PATH = detectAppBasePath();
+
+function appPath(path) {
+    const safePath = String(path || '').replace(/^\/+/, '');
+    if (!safePath) {
+        return APP_BASE_PATH || '/';
+    }
+    if (!APP_BASE_PATH) {
+        return `/${safePath}`;
+    }
+    return `${APP_BASE_PATH}/${safePath}`;
+}
+
+function appendImageVersion(url, versionKey = '') {
+    const key = String(versionKey || PRODUCT_IMAGE_CACHE_VERSION).trim();
+    if (!key) return url;
+    return `${url}${url.includes('?') ? '&' : '?'}v=${encodeURIComponent(key)}`;
+}
+
+function resolveProductStaticImagePath(filename, versionKey = '') {
+    const safeName = sanitizeImageFilename(filename || '') || PRODUCT_DEFAULT_IMAGE_FILE;
+    return appendImageVersion(appPath(`assets/images/${encodeURIComponent(safeName)}`), versionKey);
+}
+
+function resolveProductResolverImagePath(filename, versionKey = '') {
+    const safeName = sanitizeImageFilename(filename || '') || PRODUCT_DEFAULT_IMAGE_FILE;
+    return appendImageVersion(appPath(`php/product-image.php?name=${encodeURIComponent(safeName)}`), versionKey);
 }
 
 function applyProductImageFallback(img) {
     if (!img) return;
     const currentStep = Number(img.dataset.fallbackStep || 0);
+    const imageName = sanitizeImageFilename(img.dataset.imageName || PRODUCT_DEFAULT_IMAGE_FILE) || PRODUCT_DEFAULT_IMAGE_FILE;
+    const imageVersion = String(img.dataset.imageVersion || PRODUCT_IMAGE_CACHE_VERSION);
 
     if (currentStep === 0) {
         img.dataset.fallbackStep = '1';
-        img.src = resolveProductImagePath(PRODUCT_DEFAULT_IMAGE_FILE);
+        // Secondary path: resolve filename mismatches (e.g., case issues) via server endpoint.
+        img.src = resolveProductResolverImagePath(imageName, imageVersion);
         return;
     }
 
     if (currentStep === 1) {
         img.dataset.fallbackStep = '2';
+        img.src = resolveProductStaticImagePath(PRODUCT_DEFAULT_IMAGE_FILE, PRODUCT_IMAGE_CACHE_VERSION);
+        return;
+    }
+
+    if (currentStep === 2) {
+        img.dataset.fallbackStep = '3';
         img.src = PRODUCT_INLINE_FALLBACK_IMAGE;
         return;
     }
@@ -183,6 +236,8 @@ function applyProductImageFallback(img) {
 }
 
 window.applyProductImageFallback = applyProductImageFallback;
+window.resolveProductStaticImagePath = resolveProductStaticImagePath;
+window.resolveProductResolverImagePath = resolveProductResolverImagePath;
 
 function addToCartFromElement(element) {
     if (!element) return;
@@ -736,7 +791,8 @@ function buildTenantFeaturedProductCard(product, wrapperClass = 'col-md-4 mb-4')
     const productName = escapeHtml(productNameRaw);
     const productPrice = Number(product.price || 0);
     const productImage = sanitizeImageFilename(product.image || '') || PRODUCT_DEFAULT_IMAGE_FILE;
-    const productImageUrl = resolveProductImagePath(productImage);
+    const productImageVersion = `${productId}-${String(product.created_at || '')}`;
+    const productImageUrl = resolveProductStaticImagePath(productImage, productImageVersion);
     const productDescriptionRaw = String(product.description || '').trim();
     const productDescription = escapeHtml(productDescriptionRaw.substring(0, 60));
     const productStock = Number(product.stock || 0);
@@ -751,7 +807,7 @@ function buildTenantFeaturedProductCard(product, wrapperClass = 'col-md-4 mb-4')
     return `
         <div class="${wrapperClass}">
             <div class="card product-card product-card-clickable" role="button" tabindex="0" aria-label="Add ${productName} to cart" data-product-id="${productId}" data-product-name="${productNameAttr}" data-product-price="${productPrice}" data-product-image="${productImageAttr}" onclick="addToCartFromElement(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();addToCartFromElement(this);}">
-                <img src="${productImageUrl}" class="card-img-top" alt="${productName}" loading="lazy" decoding="async" onerror="applyProductImageFallback(this)">
+                <img src="${productImageUrl}" data-image-name="${productImageAttr}" data-image-version="${escapeHtml(productImageVersion)}" class="card-img-top" alt="${productName}" loading="lazy" decoding="async" onerror="applyProductImageFallback(this)">
                 <div class="card-body">
                     <h5 class="card-title">${productName}</h5>
                     <p class="card-text text-muted">${productDescriptionRaw ? `${productDescription}...` : 'Quality product available for your store.'}</p>

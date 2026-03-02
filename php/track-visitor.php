@@ -31,16 +31,12 @@ function sanitize_path_value($value, $maxLen = 180): string {
 }
 
 function detect_client_ip(): string {
-    $forwarded = (string)($_SERVER['HTTP_X_FORWARDED_FOR'] ?? '');
-    if ($forwarded !== '') {
-        $parts = array_map('trim', explode(',', $forwarded));
-        foreach ($parts as $ip) {
-            if ($ip !== '') {
-                return $ip;
-            }
-        }
+    // Do not trust client-controlled forwarding headers here.
+    $remoteAddr = trim((string)($_SERVER['REMOTE_ADDR'] ?? ''));
+    if ($remoteAddr !== '' && filter_var($remoteAddr, FILTER_VALIDATE_IP)) {
+        return $remoteAddr;
     }
-    return (string)($_SERVER['REMOTE_ADDR'] ?? '');
+    return '';
 }
 
 try {

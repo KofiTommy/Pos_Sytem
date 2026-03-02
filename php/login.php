@@ -33,22 +33,11 @@ register_shutdown_function(function () {
 });
 
 function login_client_ip(): string {
-    $candidates = [
-        $_SERVER['HTTP_X_FORWARDED_FOR'] ?? '',
-        $_SERVER['HTTP_CLIENT_IP'] ?? '',
-        $_SERVER['REMOTE_ADDR'] ?? ''
-    ];
-
-    foreach ($candidates as $raw) {
-        $parts = explode(',', (string)$raw);
-        foreach ($parts as $part) {
-            $ip = trim($part);
-            if ($ip !== '' && filter_var($ip, FILTER_VALIDATE_IP)) {
-                return $ip;
-            }
-        }
+    // Do not trust client-controlled forwarding headers here.
+    $remoteAddr = trim((string)($_SERVER['REMOTE_ADDR'] ?? ''));
+    if ($remoteAddr !== '' && filter_var($remoteAddr, FILTER_VALIDATE_IP)) {
+        return $remoteAddr;
     }
-
     return '0.0.0.0';
 }
 

@@ -1,6 +1,7 @@
 <?php
 header('Content-Type: application/json');
 header('Cache-Control: private, max-age=180');
+header('X-Content-Type-Options: nosniff');
 include 'db-connection.php';
 include 'admin-auth.php';
 include 'tenant-context.php';
@@ -14,7 +15,15 @@ function safe_text($value, $maxLen = 1000) {
 }
 
 function safe_image_name($value) {
-    return preg_replace('/[^a-zA-Z0-9._-]/', '', (string)$value);
+    $raw = str_replace('\\', '/', trim((string)$value));
+    $raw = explode('?', $raw, 2)[0];
+    $raw = explode('#', $raw, 2)[0];
+    $base = basename($raw);
+    $base = preg_replace('/[\x00-\x1F\x7F]/', '', $base);
+    if (strlen($base) > 255) {
+        $base = substr($base, 0, 255);
+    }
+    return trim($base);
 }
 
 try {

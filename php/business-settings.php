@@ -73,7 +73,6 @@ function handle_logo_upload($fieldName) {
     }
 
     $tmpPath = $file['tmp_name'] ?? '';
-    $originalName = $file['name'] ?? '';
     $size = intval($file['size'] ?? 0);
 
     if ($tmpPath === '' || !is_uploaded_file($tmpPath)) {
@@ -83,16 +82,23 @@ function handle_logo_upload($fieldName) {
         throw new Exception('Logo size must be between 1 byte and 5MB');
     }
 
-    $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
-    $allowedExt = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-    if (!in_array($extension, $allowedExt, true)) {
-        throw new Exception('Only JPG, JPEG, PNG, GIF, and WEBP logos are allowed');
-    }
-
     $imageInfo = @getimagesize($tmpPath);
     if ($imageInfo === false) {
         throw new Exception('Uploaded logo is not a valid image');
     }
+
+    $finfo = new finfo(FILEINFO_MIME_TYPE);
+    $mimeType = strtolower((string)$finfo->file($tmpPath));
+    $allowedMimeToExt = [
+        'image/jpeg' => 'jpg',
+        'image/png' => 'png',
+        'image/gif' => 'gif',
+        'image/webp' => 'webp'
+    ];
+    if (!isset($allowedMimeToExt[$mimeType])) {
+        throw new Exception('Only JPG, PNG, GIF, and WEBP logos are allowed');
+    }
+    $extension = $allowedMimeToExt[$mimeType];
 
     $uploadDir = realpath(__DIR__ . '/../assets/images');
     if ($uploadDir === false || !is_dir($uploadDir) || !is_writable($uploadDir)) {
@@ -105,6 +111,7 @@ function handle_logo_upload($fieldName) {
     if (!move_uploaded_file($tmpPath, $destination)) {
         throw new Exception('Could not save uploaded logo');
     }
+    @chmod($destination, 0644);
 
     return $filename;
 }
