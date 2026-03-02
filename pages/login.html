@@ -137,6 +137,9 @@
                                     <label class="form-check-label" for="remember">Remember me</label>
                                 </div>
                             </div>
+                            <div class="col-12 text-end">
+                                <a href="forgot-password.html" id="forgotPasswordLink" class="small">Forgot owner password?</a>
+                            </div>
                             <div class="col-12">
                                 <button type="submit" class="btn btn-primary btn-login" id="loginBtn">
                                     <i class="fas fa-sign-in-alt"></i> Login
@@ -292,6 +295,12 @@
             }
         }
 
+        function updateContextLinks(tenantCode) {
+            const code = sanitizeTenantCode(tenantCode || '');
+            document.getElementById('backHomeLink').href = withTenantQuery('../index.html', code);
+            document.getElementById('forgotPasswordLink').href = withTenantQuery('forgot-password.html', code);
+        }
+
         function loadTenantFromContext() {
             const params = new URLSearchParams(window.location.search || '');
             const fromUrl = sanitizeTenantCode(params.get('tenant') || params.get('business_code') || '');
@@ -301,10 +310,10 @@
                 localStorage.setItem('tenant_code', activeTenant);
                 document.getElementById('business_code').value = activeTenant;
                 document.getElementById('reg_business_code').value = activeTenant;
-                document.getElementById('backHomeLink').href = withTenantQuery('../index.html', activeTenant);
             } else {
                 localStorage.removeItem('tenant_code');
             }
+            updateContextLinks(activeTenant);
             return activeTenant;
         }
 
@@ -416,8 +425,8 @@
                     localStorage.setItem('tenant_code', code);
                     document.getElementById('business_code').value = code;
                     document.getElementById('reg_business_code').value = code;
-                    document.getElementById('backHomeLink').href = withTenantQuery('../index.html', code);
                 }
+                updateContextLinks(code);
                 document.getElementById('username').value = payload.owner_username;
                 document.getElementById('password').value = '';
                 document.getElementById('registerForm').reset();
@@ -443,6 +452,7 @@
 
         document.getElementById('business_code').addEventListener('input', function () {
             this.value = sanitizeTenantCode(this.value);
+            updateContextLinks(this.value);
         });
         document.getElementById('reg_business_code').addEventListener('input', function () {
             this.value = sanitizeTenantCode(this.value);

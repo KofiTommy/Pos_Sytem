@@ -277,6 +277,26 @@
             margin-top: 1rem;
             display: grid;
             gap: 0.7rem;
+            max-height: 360px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding-right: 0.3rem;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(15, 118, 110, 0.45) rgba(15, 118, 110, 0.12);
+        }
+
+        .business-directory-results::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .business-directory-results::-webkit-scrollbar-track {
+            background: rgba(15, 118, 110, 0.12);
+            border-radius: 999px;
+        }
+
+        .business-directory-results::-webkit-scrollbar-thumb {
+            background: rgba(15, 118, 110, 0.45);
+            border-radius: 999px;
         }
 
         .business-directory-item {

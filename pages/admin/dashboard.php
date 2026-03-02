@@ -241,6 +241,15 @@ $currentRole = current_user_role();
             <div class="col-sm-6 col-xl-3">
                 <div class="card kpi-card">
                     <div class="card-body">
+                        <p class="kpi-label">Site Visitors</p>
+                        <h2 class="kpi-value" id="kpiVisitors">0</h2>
+                        <small id="kpiVisitorsToday" class="text-muted">0 today • 0 page views</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-xl-3">
+                <div class="card kpi-card">
+                    <div class="card-body">
                         <p class="kpi-label">Client Messages</p>
                         <h2 class="kpi-value" id="kpiMessages">0</h2>
                         <small id="kpiUnreadMessages" class="text-muted">0 new</small>
@@ -530,6 +539,8 @@ $currentRole = current_user_role();
             document.getElementById('kpiAov').textContent = formatMoney(k.avg_order_value);
             document.getElementById('kpiSalesToday').textContent = formatMoney(k.sales_today);
             document.getElementById('kpiOrdersToday').textContent = `${k.orders_today || 0} orders today`;
+            document.getElementById('kpiVisitors').textContent = String(k.unique_visitors || 0);
+            document.getElementById('kpiVisitorsToday').textContent = `${k.visitors_today || 0} today • ${k.visits_count || 0} page views`;
             document.getElementById('kpiProducts').textContent = String(k.products_count || 0);
             document.getElementById('kpiUnits').textContent = String(k.units_in_stock || 0);
             document.getElementById('kpiLowStock').textContent = String(k.low_stock_count || 0);

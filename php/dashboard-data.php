@@ -82,6 +82,37 @@ try {
     $todaySummary = $todayStmt->get_result()->fetch_assoc();
     $todayStmt->close();
 
+    // Storefront visitors (if table exists)
+    $visitorSummary = ['unique_visitors' => 0, 'visits_count' => 0];
+    $visitorToday = ['visitors_today' => 0];
+    $hasVisitorsTable = false;
+    $visitorTableCheck = $conn->query("SHOW TABLES LIKE 'store_visitors'");
+    if ($visitorTableCheck && $visitorTableCheck->num_rows > 0) {
+        $hasVisitorsTable = true;
+
+        $visitorsStmt = $conn->prepare(
+            "SELECT
+                COUNT(DISTINCT visitor_key) AS unique_visitors,
+                COALESCE(SUM(page_views), 0) AS visits_count
+             FROM store_visitors
+             WHERE business_id = ? AND visit_date >= ? AND visit_date <= ?"
+        );
+        $visitorsStmt->bind_param('iss', $businessId, $fromSql, $toSql);
+        $visitorsStmt->execute();
+        $visitorSummary = $visitorsStmt->get_result()->fetch_assoc() ?: $visitorSummary;
+        $visitorsStmt->close();
+
+        $visitorsTodayStmt = $conn->prepare(
+            "SELECT COUNT(DISTINCT visitor_key) AS visitors_today
+             FROM store_visitors
+             WHERE business_id = ? AND visit_date = ?"
+        );
+        $visitorsTodayStmt->bind_param('is', $businessId, $todaySql);
+        $visitorsTodayStmt->execute();
+        $visitorToday = $visitorsTodayStmt->get_result()->fetch_assoc() ?: $visitorToday;
+        $visitorsTodayStmt->close();
+    }
+
     $productStmt = $conn->prepare(
         "SELECT
             COUNT(*) AS products_count,
@@ -287,6 +318,9 @@ try {
             'avg_order_value' => floatval($summary['avg_order_value'] ?? 0),
             'orders_today' => intval($todaySummary['orders_today'] ?? 0),
             'sales_today' => floatval($todaySummary['sales_today'] ?? 0),
+            'unique_visitors' => intval($visitorSummary['unique_visitors'] ?? 0),
+            'visits_count' => intval($visitorSummary['visits_count'] ?? 0),
+            'visitors_today' => intval($visitorToday['visitors_today'] ?? 0),
             'products_count' => intval($productSummary['products_count'] ?? 0),
             'units_in_stock' => intval($productSummary['units_in_stock'] ?? 0),
             'low_stock_count' => count($lowStockProducts),
@@ -302,6 +336,7 @@ try {
         'contact_messages' => $contactMessages,
         'contact_counts' => $contactCounts,
         'has_contact_messages_table' => $hasContactTable,
+        'has_store_visitors_table' => $hasVisitorsTable,
         'has_product_reviews_table' => $hasProductReviewsTable
     ]);
 } catch (Exception $e) {

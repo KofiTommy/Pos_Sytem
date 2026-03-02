@@ -65,6 +65,7 @@ function tenant_is_multitenant_schema_ready(mysqli $conn): bool {
              OR (TABLE_NAME = 'payment_intents' AND COLUMN_NAME = 'business_id')
              OR (TABLE_NAME = 'payment_gateway_settings' AND COLUMN_NAME = 'business_id')
              OR (TABLE_NAME = 'product_reviews' AND COLUMN_NAME = 'business_id')
+             OR (TABLE_NAME = 'store_visitors' AND COLUMN_NAME = 'business_id')
            )"
     );
     $stmt->execute();
@@ -89,7 +90,7 @@ function tenant_is_multitenant_schema_ready(mysqli $conn): bool {
     $indexStmt->close();
 
     $hasProductPerformanceIndexes = intval($indexRow['total'] ?? 0) >= 5;
-    $isReady = intval($row['total'] ?? 0) >= 12 && $hasProductPerformanceIndexes;
+    $isReady = intval($row['total'] ?? 0) >= 13 && $hasProductPerformanceIndexes;
     tenant_multitenant_schema_cached($isReady);
     return $isReady;
 }
@@ -554,6 +555,52 @@ function ensure_multitenant_schema(mysqli $conn): void {
         run_tenant_schema_query($conn, "ALTER TABLE product_reviews ADD INDEX idx_product_reviews_business_id (business_id)");
         run_tenant_schema_query($conn, "ALTER TABLE product_reviews ADD INDEX idx_product_reviews_business_product (business_id, product_id)");
         run_tenant_schema_query($conn, "ALTER TABLE product_reviews ADD INDEX idx_product_reviews_business_status_created (business_id, status, created_at)");
+    }
+
+    $conn->query(
+        "CREATE TABLE IF NOT EXISTS store_visitors (
+            id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            business_id INT NOT NULL,
+            visitor_key VARCHAR(120) NOT NULL,
+            visit_date DATE NOT NULL,
+            first_seen_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            last_seen_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            page_views INT UNSIGNED NOT NULL DEFAULT 1,
+            landing_page VARCHAR(180) NOT NULL DEFAULT '',
+            user_agent VARCHAR(255) NOT NULL DEFAULT '',
+            ip_hash CHAR(64) NOT NULL DEFAULT '',
+            INDEX idx_store_visitors_business_date (business_id, visit_date),
+            INDEX idx_store_visitors_business_last_seen (business_id, last_seen_at),
+            UNIQUE KEY uk_store_visitors_daily (business_id, visitor_key, visit_date)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+    );
+
+    if (tenant_table_exists($conn, 'store_visitors')) {
+        run_tenant_schema_query($conn, "ALTER TABLE store_visitors ADD COLUMN business_id INT NULL AFTER id");
+        run_tenant_schema_query($conn, "ALTER TABLE store_visitors ADD COLUMN visitor_key VARCHAR(120) NOT NULL DEFAULT '' AFTER business_id");
+        run_tenant_schema_query($conn, "ALTER TABLE store_visitors ADD COLUMN visit_date DATE NOT NULL AFTER visitor_key");
+        run_tenant_schema_query($conn, "ALTER TABLE store_visitors ADD COLUMN first_seen_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP AFTER visit_date");
+        run_tenant_schema_query($conn, "ALTER TABLE store_visitors ADD COLUMN last_seen_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER first_seen_at");
+        run_tenant_schema_query($conn, "ALTER TABLE store_visitors ADD COLUMN page_views INT UNSIGNED NOT NULL DEFAULT 1 AFTER last_seen_at");
+        run_tenant_schema_query($conn, "ALTER TABLE store_visitors ADD COLUMN landing_page VARCHAR(180) NOT NULL DEFAULT '' AFTER page_views");
+        run_tenant_schema_query($conn, "ALTER TABLE store_visitors ADD COLUMN user_agent VARCHAR(255) NOT NULL DEFAULT '' AFTER landing_page");
+        run_tenant_schema_query($conn, "ALTER TABLE store_visitors ADD COLUMN ip_hash CHAR(64) NOT NULL DEFAULT '' AFTER user_agent");
+        $updateStmt = $conn->prepare("UPDATE store_visitors SET business_id = ? WHERE business_id IS NULL OR business_id = 0");
+        $updateStmt->bind_param('i', $defaultBusinessId);
+        $updateStmt->execute();
+        $updateStmt->close();
+        run_tenant_schema_query($conn, "ALTER TABLE store_visitors MODIFY business_id INT NOT NULL", [1265]);
+        run_tenant_schema_query($conn, "ALTER TABLE store_visitors ADD INDEX idx_store_visitors_business_date (business_id, visit_date)");
+        run_tenant_schema_query($conn, "ALTER TABLE store_visitors ADD INDEX idx_store_visitors_business_last_seen (business_id, last_seen_at)");
+        $conn->query(
+            "DELETE sv_old FROM store_visitors sv_old
+             JOIN store_visitors sv_new
+               ON sv_old.business_id = sv_new.business_id
+              AND sv_old.visitor_key = sv_new.visitor_key
+              AND sv_old.visit_date = sv_new.visit_date
+              AND sv_old.id < sv_new.id"
+        );
+        run_tenant_schema_query($conn, "ALTER TABLE store_visitors ADD UNIQUE KEY uk_store_visitors_daily (business_id, visitor_key, visit_date)");
     }
 
     tenant_ensure_business_settings_row($conn, $defaultBusinessId, $defaultName, $defaultEmail, $defaultPhone);

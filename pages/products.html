@@ -246,11 +246,17 @@
     <script src="../js/scripts.js?v=20260301-2"></script>
     <script>
         const LAZY_IMG_PLACEHOLDER = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
+        const PRODUCT_FALLBACK_IMAGE = '../assets/images/pexels-jonathan-nenemann-12114822.jpg';
         const PAGE_SIZE = 6;
         let currentOffset = 0;
         let hasMoreProducts = true;
         let loadingProducts = false;
         let productReviewsModal = null;
+
+        function resolveProductImageUrl(filename) {
+            const safeName = sanitizeImageFilename(filename || '') || 'pexels-jonathan-nenemann-12114822.jpg';
+            return `../assets/images/${safeName}`;
+        }
 
         function buildProductsApiUrl(limit, offset) {
             const baseUrl = `../php/get-products.php?limit=${limit}&offset=${offset}`;
@@ -350,6 +356,7 @@
                             const productName = escapeHtml(productNameRaw);
                             const productDescription = escapeHtml(String(product.description || ''));
                             const productImage = sanitizeImageFilename(product.image || '') || 'pexels-jonathan-nenemann-12114822.jpg';
+                            const productImageUrl = resolveProductImageUrl(productImage);
                             const productNameAttr = escapeHtml(productNameRaw);
                             const productImageAttr = escapeHtml(productImage);
                             const ratingAvg = Number(product.rating_avg || 0);
@@ -361,7 +368,7 @@
                             return `
                                 <div class="col-md-6 col-lg-4 mb-4 product-item" data-category="${productCategory}" data-price="${productPrice}">
                                     <div class="card product-card product-card-clickable" role="button" tabindex="0" aria-label="Add ${productName} to cart" data-product-id="${productId}" data-product-name="${productNameAttr}" data-product-price="${productPrice}" data-product-image="${productImageAttr}" onclick="addToCartFromElement(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();addToCartFromElement(this);}">
-                                        <img src="${LAZY_IMG_PLACEHOLDER}" data-src="../assets/images/${productImage}" class="card-img-top" alt="${productName}" loading="lazy" decoding="async">
+                                        <img src="${LAZY_IMG_PLACEHOLDER}" data-src="${productImageUrl}" class="card-img-top" alt="${productName}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='${PRODUCT_FALLBACK_IMAGE}';">
                                         <div class="card-body">
                                             <h5 class="card-title">${productName}</h5>
                                             <p class="card-text text-muted text-truncate">${productDescription}</p>

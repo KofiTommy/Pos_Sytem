@@ -51,6 +51,8 @@ function detectTenantCode() {
 const activeTenantCode = detectTenantCode();
 const CART_STORAGE_KEY_PREFIX = 'cart';
 const LEGACY_CART_STORAGE_KEY = 'cart';
+const VISITOR_KEY_STORAGE_KEY = 'visitor_key';
+const VISITOR_TRACKED_PREFIX = 'visitor_tracked';
 
 function resolveCartStorageKey(tenantCode = activeTenantCode) {
     const safeTenantCode = sanitizeTenantCode(tenantCode || '');
@@ -145,6 +147,15 @@ function escapeHtml(value) {
 
 function sanitizeImageFilename(value) {
     return String(value ?? '').replace(/[^a-zA-Z0-9._-]/g, '');
+}
+
+function resolveProductImagePath(filename) {
+    const safeName = sanitizeImageFilename(filename || '') || 'pexels-jonathan-nenemann-12114822.jpg';
+    const path = String(window.location.pathname || '').toLowerCase();
+    if (path.indexOf('/pages/') !== -1) {
+        return `../assets/images/${safeName}`;
+    }
+    return `assets/images/${safeName}`;
 }
 
 function addToCartFromElement(element) {
@@ -312,6 +323,112 @@ function resolvePublicBusinessesPath() {
         return '../php/public-businesses.php';
     }
     return 'php/public-businesses.php';
+}
+
+function resolveVisitorTrackingPath() {
+    const path = String(window.location.pathname || '').toLowerCase();
+    if (path.indexOf('/pages/') !== -1) {
+        return '../php/track-visitor.php';
+    }
+    return 'php/track-visitor.php';
+}
+
+function generateVisitorKey() {
+    if (window.crypto && typeof window.crypto.getRandomValues === 'function') {
+        const bytes = new Uint8Array(16);
+        window.crypto.getRandomValues(bytes);
+        return Array.from(bytes)
+            .map((byte) => byte.toString(16).padStart(2, '0'))
+            .join('');
+    }
+    return `${Date.now().toString(16)}${Math.random().toString(16).slice(2, 18)}`;
+}
+
+function getOrCreateVisitorKey() {
+    try {
+        let key = String(localStorage.getItem(VISITOR_KEY_STORAGE_KEY) || '').trim();
+        if (key.length >= 16) {
+            return key;
+        }
+        key = generateVisitorKey();
+        localStorage.setItem(VISITOR_KEY_STORAGE_KEY, key);
+        return key;
+    } catch (error) {
+        return '';
+    }
+}
+
+function visitorTrackingMarker(tenantCode, businessId) {
+    const stamp = new Date().toISOString().slice(0, 10);
+    const scope = tenantCode || String(Number(businessId || 0));
+    return `${VISITOR_TRACKED_PREFIX}:${scope}:${stamp}`;
+}
+
+let visitorTrackingInFlight = false;
+let visitorTrackingDone = false;
+
+async function trackStorefrontVisit() {
+    if (visitorTrackingInFlight || visitorTrackingDone) return;
+
+    const businessContext = getBusinessContext();
+    const tenantCode = sanitizeTenantCode(activeTenantCode || businessContext.business_code || '');
+    const businessId = Number(businessContext.id || 0);
+    if (!tenantCode && businessId <= 0) {
+        return;
+    }
+
+    const marker = visitorTrackingMarker(tenantCode, businessId);
+    try {
+        if (localStorage.getItem(marker) === '1') {
+            visitorTrackingDone = true;
+            return;
+        }
+    } catch (error) {
+        // Ignore localStorage failures.
+    }
+
+    const visitorKey = getOrCreateVisitorKey();
+    if (!visitorKey || !tenantCode) {
+        return;
+    }
+
+    visitorTrackingInFlight = true;
+    try {
+        const response = await fetch(withTenantQuery(resolveVisitorTrackingPath()), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                business_code: tenantCode,
+                visitor_key: visitorKey,
+                page: String(window.location.pathname || '/').substring(0, 180)
+            }),
+            keepalive: true
+        });
+        if (!response.ok) {
+            return;
+        }
+
+        let success = true;
+        try {
+            const data = await response.json();
+            success = !!(data && data.success && data.tracked !== false);
+        } catch (error) {
+            success = true;
+        }
+
+        if (success) {
+            visitorTrackingDone = true;
+            try {
+                localStorage.setItem(marker, '1');
+            } catch (error) {
+                // Ignore localStorage failures.
+            }
+        }
+    } catch (error) {
+        // Silent fail to avoid disrupting storefront interactions.
+    } finally {
+        visitorTrackingInFlight = false;
+    }
 }
 
 function animateCounterValue(element, targetValue) {
@@ -593,6 +710,8 @@ function buildTenantFeaturedProductCard(product, wrapperClass = 'col-md-4 mb-4')
     const productName = escapeHtml(productNameRaw);
     const productPrice = Number(product.price || 0);
     const productImage = sanitizeImageFilename(product.image || '') || 'pexels-jonathan-nenemann-12114822.jpg';
+    const productImageUrl = resolveProductImagePath(productImage);
+    const fallbackImageUrl = resolveProductImagePath('pexels-jonathan-nenemann-12114822.jpg');
     const productDescriptionRaw = String(product.description || '').trim();
     const productDescription = escapeHtml(productDescriptionRaw.substring(0, 60));
     const productStock = Number(product.stock || 0);
@@ -607,7 +726,7 @@ function buildTenantFeaturedProductCard(product, wrapperClass = 'col-md-4 mb-4')
     return `
         <div class="${wrapperClass}">
             <div class="card product-card product-card-clickable" role="button" tabindex="0" aria-label="Add ${productName} to cart" data-product-id="${productId}" data-product-name="${productNameAttr}" data-product-price="${productPrice}" data-product-image="${productImageAttr}" onclick="addToCartFromElement(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();addToCartFromElement(this);}">
-                <img src="assets/images/${productImage}" class="card-img-top" alt="${productName}" loading="lazy" decoding="async">
+                <img src="${productImageUrl}" class="card-img-top" alt="${productName}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='${fallbackImageUrl}';">
                 <div class="card-body">
                     <h5 class="card-title">${productName}</h5>
                     <p class="card-text text-muted">${productDescriptionRaw ? `${productDescription}...` : 'Quality product available for your store.'}</p>
@@ -781,6 +900,7 @@ document.addEventListener('DOMContentLoaded', function () {
     updateCartCount();
     loadFeaturedProducts();
     updateAdminPortalLink();
+    trackStorefrontVisit();
 });
 
 window.addEventListener('business-context:loaded', function () {
@@ -790,6 +910,7 @@ window.addEventListener('business-context:loaded', function () {
     loadPlatformBusinessCount();
     setupBusinessDirectorySearch();
     loadFeaturedProducts();
+    trackStorefrontVisit();
 });
 
 // Validate email
