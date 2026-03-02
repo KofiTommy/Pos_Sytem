@@ -247,7 +247,7 @@
     <script>
         const LAZY_IMG_PLACEHOLDER = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
         const PRODUCT_FALLBACK_IMAGE = '../assets/images/pexels-jonathan-nenemann-12114822.jpg';
-        const PRODUCT_INLINE_FALLBACK_IMAGE = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500"><rect width="800" height="500" fill="#eef4f3"/><g fill="#6b7280" font-family="Segoe UI,Arial,sans-serif" text-anchor="middle"><text x="400" y="240" font-size="34" font-weight="700">Image unavailable</text><text x="400" y="282" font-size="20">Please check back later</text></g></svg>')}`;
+        const PRODUCT_INLINE_FALLBACK_IMAGE_LOCAL = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500"><rect width="800" height="500" fill="#eef4f3"/><g fill="#6b7280" font-family="Segoe UI,Arial,sans-serif" text-anchor="middle"><text x="400" y="240" font-size="34" font-weight="700">Image unavailable</text><text x="400" y="282" font-size="20">Please check back later</text></g></svg>')}`;
         const PAGE_SIZE = 6;
         let currentOffset = 0;
         let hasMoreProducts = true;
@@ -271,7 +271,7 @@
 
             if (currentStep === 1) {
                 img.dataset.fallbackStep = '2';
-                img.src = PRODUCT_INLINE_FALLBACK_IMAGE;
+                img.src = PRODUCT_INLINE_FALLBACK_IMAGE_LOCAL;
                 return;
             }
 
