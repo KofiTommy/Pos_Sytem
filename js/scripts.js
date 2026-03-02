@@ -149,14 +149,40 @@ function sanitizeImageFilename(value) {
     return String(value ?? '').replace(/[^a-zA-Z0-9._-]/g, '');
 }
 
+const PRODUCT_DEFAULT_IMAGE_FILE = 'pexels-jonathan-nenemann-12114822.jpg';
+const PRODUCT_INLINE_FALLBACK_IMAGE = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500"><rect width="800" height="500" fill="#eef4f3"/><g fill="#6b7280" font-family="Segoe UI,Arial,sans-serif" text-anchor="middle"><text x="400" y="240" font-size="34" font-weight="700">Image unavailable</text><text x="400" y="282" font-size="20">Please check back later</text></g></svg>'
+)}`;
+
 function resolveProductImagePath(filename) {
-    const safeName = sanitizeImageFilename(filename || '') || 'pexels-jonathan-nenemann-12114822.jpg';
+    const safeName = sanitizeImageFilename(filename || '') || PRODUCT_DEFAULT_IMAGE_FILE;
     const path = String(window.location.pathname || '').toLowerCase();
     if (path.indexOf('/pages/') !== -1) {
         return `../assets/images/${safeName}`;
     }
     return `assets/images/${safeName}`;
 }
+
+function applyProductImageFallback(img) {
+    if (!img) return;
+    const currentStep = Number(img.dataset.fallbackStep || 0);
+
+    if (currentStep === 0) {
+        img.dataset.fallbackStep = '1';
+        img.src = resolveProductImagePath(PRODUCT_DEFAULT_IMAGE_FILE);
+        return;
+    }
+
+    if (currentStep === 1) {
+        img.dataset.fallbackStep = '2';
+        img.src = PRODUCT_INLINE_FALLBACK_IMAGE;
+        return;
+    }
+
+    img.onerror = null;
+}
+
+window.applyProductImageFallback = applyProductImageFallback;
 
 function addToCartFromElement(element) {
     if (!element) return;
@@ -709,9 +735,8 @@ function buildTenantFeaturedProductCard(product, wrapperClass = 'col-md-4 mb-4')
     const productNameRaw = String(product.name || '');
     const productName = escapeHtml(productNameRaw);
     const productPrice = Number(product.price || 0);
-    const productImage = sanitizeImageFilename(product.image || '') || 'pexels-jonathan-nenemann-12114822.jpg';
+    const productImage = sanitizeImageFilename(product.image || '') || PRODUCT_DEFAULT_IMAGE_FILE;
     const productImageUrl = resolveProductImagePath(productImage);
-    const fallbackImageUrl = resolveProductImagePath('pexels-jonathan-nenemann-12114822.jpg');
     const productDescriptionRaw = String(product.description || '').trim();
     const productDescription = escapeHtml(productDescriptionRaw.substring(0, 60));
     const productStock = Number(product.stock || 0);
@@ -726,7 +751,7 @@ function buildTenantFeaturedProductCard(product, wrapperClass = 'col-md-4 mb-4')
     return `
         <div class="${wrapperClass}">
             <div class="card product-card product-card-clickable" role="button" tabindex="0" aria-label="Add ${productName} to cart" data-product-id="${productId}" data-product-name="${productNameAttr}" data-product-price="${productPrice}" data-product-image="${productImageAttr}" onclick="addToCartFromElement(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();addToCartFromElement(this);}">
-                <img src="${productImageUrl}" class="card-img-top" alt="${productName}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='${fallbackImageUrl}';">
+                <img src="${productImageUrl}" class="card-img-top" alt="${productName}" loading="lazy" decoding="async" onerror="applyProductImageFallback(this)">
                 <div class="card-body">
                     <h5 class="card-title">${productName}</h5>
                     <p class="card-text text-muted">${productDescriptionRaw ? `${productDescription}...` : 'Quality product available for your store.'}</p>
