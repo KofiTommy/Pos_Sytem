@@ -33,14 +33,12 @@ try {
     if ($explicitBusinessCode === '') {
         $explicitBusinessCode = tenant_request_uri_business_code();
     }
-    if ($explicitBusinessCode === '') {
-        throw new Exception('Missing business code for payment initialization.');
-    }
+    $allowDefaultBusiness = ($explicitBusinessCode === '');
 
     $business = tenant_require_business_context(
         $conn,
         ['business_code' => $explicitBusinessCode],
-        false
+        $allowDefaultBusiness
     );
     $businessId = intval($business['id'] ?? 0);
     if ($businessId <= 0) {
