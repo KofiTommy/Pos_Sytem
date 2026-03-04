@@ -54,3 +54,7 @@ Options -Indexes
         Header set Cache-Control "no-cache, no-store, must-revalidate"
     </FilesMatch>
 </IfModule>
+
+<FilesMatch "^(hq-config\.local\.php|hq-config\.local\.example\.php)$">
+    Require all denied
+</FilesMatch>

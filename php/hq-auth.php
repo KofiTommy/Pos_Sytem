@@ -32,7 +32,43 @@ function hq_env(string $key): string {
         }
     }
 
+    $local = hq_local_config();
+    if (isset($local[$key])) {
+        $value = trim((string)$local[$key]);
+        if ($value !== '') {
+            return $value;
+        }
+    }
+
     return '';
+}
+
+function hq_local_config(): array {
+    static $cached = null;
+    if ($cached !== null) {
+        return $cached;
+    }
+
+    $cached = [];
+    $path = __DIR__ . '/hq-config.local.php';
+    if (!is_file($path)) {
+        return $cached;
+    }
+
+    $data = include $path;
+    if (!is_array($data)) {
+        return $cached;
+    }
+
+    foreach ($data as $k => $v) {
+        $name = strtoupper(trim((string)$k));
+        if ($name === '') {
+            continue;
+        }
+        $cached[$name] = (string)$v;
+    }
+
+    return $cached;
 }
 
 function hq_request_host(): string {
