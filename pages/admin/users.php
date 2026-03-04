@@ -196,7 +196,6 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
                 const userId = Number(user.id);
                 const username = String(user.username || '');
                 const usernameHtml = escapeHtml(username);
-                const usernameJs = JSON.stringify(username);
                 const emailHtml = escapeHtml(user.email);
                 const roleHtml = escapeHtml(user.role);
                 const createdHtml = escapeHtml(user.created_at);
@@ -212,8 +211,8 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
                     <td>
                         ${user.role === 'sales'
                             ? `<div class="d-flex flex-wrap gap-1">
-                                <button class="btn btn-sm btn-outline-primary" onclick="openResetPasswordModal(${userId}, ${usernameJs})">Reset Password</button>
-                                <button class="btn btn-sm btn-outline-danger" onclick="deleteUser(${userId}, ${usernameJs})">Delete</button>
+                                <button type="button" class="btn btn-sm btn-outline-primary" data-user-action="reset" data-user-id="${userId}" data-username="${usernameHtml}">Reset Password</button>
+                                <button type="button" class="btn btn-sm btn-outline-danger" data-user-action="delete" data-user-id="${userId}" data-username="${usernameHtml}">Delete</button>
                                </div>`
                             : '<span class="text-muted small">Protected</span>'}
                     </td>
@@ -356,6 +355,25 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
         document.getElementById('createUserForm').addEventListener('submit', createUser);
         document.getElementById('changePasswordForm').addEventListener('submit', changeOwnPassword);
         document.getElementById('resetStaffPasswordForm').addEventListener('submit', resetStaffPassword);
+        document.getElementById('usersRows').addEventListener('click', (event) => {
+            const btn = event.target.closest('button[data-user-action]');
+            if (!btn) return;
+
+            const action = String(btn.getAttribute('data-user-action') || '').trim();
+            const userId = Number(btn.getAttribute('data-user-id') || 0);
+            const username = String(btn.getAttribute('data-username') || '');
+            if (!Number.isFinite(userId) || userId <= 0) {
+                return;
+            }
+
+            if (action === 'reset') {
+                openResetPasswordModal(userId, username);
+                return;
+            }
+            if (action === 'delete') {
+                deleteUser(userId, username);
+            }
+        });
         document.getElementById('refreshBtn').addEventListener('click', () => {
             loadUsers().catch((error) => showFormAlert(error.message, 'danger'));
         });

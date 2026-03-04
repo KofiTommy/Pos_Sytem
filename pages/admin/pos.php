@@ -7,10 +7,8 @@ $currentBusinessCode = current_business_code();
 $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
 $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
 $scriptName = str_replace('\\', '/', (string)($_SERVER['SCRIPT_NAME'] ?? ''));
-$appBasePath = preg_replace('#/pages/admin/[^/]+$#', '', $scriptName);
-if (!is_string($appBasePath) || $appBasePath === '') {
-    $appBasePath = '/possystem';
-}
+$appBasePath = preg_replace('#/pages/admin/.*$#', '', $scriptName);
+$appBasePath = rtrim((string)$appBasePath, '/');
 $appBaseUrl = $scheme . '://' . $host . $appBasePath;
 $tenantStorefrontUrl = $appBaseUrl . '/index.html'
     . ($currentBusinessCode !== '' ? ('?tenant=' . rawurlencode($currentBusinessCode)) : '');
@@ -118,14 +116,14 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
         </div>
         <div class="offcanvas-body">
             <div class="pos-mobile-summary mb-3">
-                <div class="d-flex justify-content-between align-items-center mb-2">
+                <a href="sales.php" class="d-flex justify-content-between align-items-center text-decoration-none text-reset mb-2">
                     <span class="small fw-semibold">Pending Orders</span>
                     <span class="badge bg-warning text-dark" data-pending-orders>0</span>
-                </div>
-                <div class="d-flex justify-content-between align-items-center">
+                </a>
+                <a href="<?php echo $isOwner ? 'dashboard.php#clientMessagesSection' : 'sales.php'; ?>" class="d-flex justify-content-between align-items-center text-decoration-none text-reset">
                     <span class="small fw-semibold">New Messages</span>
                     <span class="badge bg-primary" data-new-messages>0</span>
-                </div>
+                </a>
             </div>
 
             <p class="small text-muted mb-2">Quick Actions</p>
