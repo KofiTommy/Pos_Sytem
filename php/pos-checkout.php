@@ -6,6 +6,7 @@ include 'db-connection.php';
 include 'payment-schema.php';
 include 'staff-tracking-schema.php';
 include 'tenant-context.php';
+include_once __DIR__ . '/compliance-tracking.php';
 
 function clean_text_input($value, $maxLen = 255) {
     $text = trim(strip_tags((string)$value));
@@ -19,6 +20,7 @@ try {
     ensure_payment_schema($conn);
     ensure_staff_tracking_schema($conn);
     ensure_multitenant_schema($conn);
+    ensure_phase3_tracking_schema($conn);
     $businessId = current_business_id();
     if ($businessId <= 0) {
         throw new Exception('Invalid business context. Please sign in again.');
@@ -103,6 +105,8 @@ try {
                 'name' => $product['name'],
                 'price' => floatval($product['price']),
                 'quantity' => $quantity,
+                'stock_before' => intval($product['stock']),
+                'stock_after' => intval($product['stock']) - $quantity,
                 'line_total' => $lineTotal
             ];
         }
@@ -167,10 +171,45 @@ try {
 
             $stockStmt->bind_param('iii', $item['quantity'], $item['id'], $businessId);
             $stockStmt->execute();
+
+            tracking_log_inventory_adjustment(
+                $conn,
+                $businessId,
+                intval($item['id']),
+                -intval($item['quantity']),
+                'pos_sale',
+                $orderId,
+                intval($item['stock_before']),
+                intval($item['stock_after']),
+                'POS checkout stock deduction',
+                $staffUserId,
+                $staffUsername
+            );
         }
 
         $itemStmt->close();
         $stockStmt->close();
+
+        tracking_log_business_event(
+            $conn,
+            $businessId,
+            'order.pos_create',
+            'order',
+            $orderId,
+            [
+                'customer_name' => $customerName,
+                'payment_method' => $paymentMethod,
+                'status' => 'paid',
+                'payment_status' => $paymentStatus,
+                'subtotal' => round($subtotal, 2),
+                'tax' => round($tax, 2),
+                'total' => round($total, 2),
+                'discount' => round($discount, 2),
+                'item_count' => count($validatedItems)
+            ],
+            $staffUserId,
+            $staffUsername
+        );
 
         $conn->commit();
 

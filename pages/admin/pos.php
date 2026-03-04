@@ -37,6 +37,9 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html' . $tenantQuery;
                 <a href="business-settings.php" class="btn btn-outline-primary btn-sm">Business Info</a>
                 <a href="payment-settings.php" class="btn btn-outline-secondary btn-sm">Payment Settings</a>
                 <a href="users.php" class="btn btn-outline-warning btn-sm">Manage Staff</a>
+                <a href="cash-closures.php" class="btn btn-outline-dark btn-sm">Cash Closures</a>
+                <a href="audit-trail.php" class="btn btn-outline-dark btn-sm">Audit Trail</a>
+                <a href="operations-alerts.php" class="btn btn-outline-danger btn-sm">Ops Alerts</a>
                 <?php endif; ?>
                 <a href="sales.php" class="btn btn-outline-primary btn-sm">Sales History</a>
                 <a href="<?php echo htmlspecialchars($tenantStorefrontUrl); ?>" class="btn btn-outline-dark btn-sm">View Storefront</a>

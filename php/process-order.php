@@ -5,6 +5,7 @@ header('Content-Type: application/json');
 include 'db-connection.php';
 include 'payment-schema.php';
 include 'tenant-context.php';
+include_once __DIR__ . '/compliance-tracking.php';
 
 function clean_text_input($value, $maxLen = 255) {
     $text = trim(strip_tags((string)$value));
@@ -20,6 +21,7 @@ try {
     }
 
     ensure_payment_schema($conn);
+    ensure_phase3_tracking_schema($conn);
     $explicitBusinessCode = trim((string)($_POST['business_code'] ?? ''));
     if ($explicitBusinessCode === '') {
         $explicitBusinessCode = trim((string)($_GET['business_code'] ?? ($_GET['tenant'] ?? '')));
@@ -28,6 +30,8 @@ try {
         $explicitBusinessCode = tenant_request_uri_business_code();
     }
     $allowDefaultBusiness = ($explicitBusinessCode === '');
+    $actorUserId = 0;
+    $actorUsername = 'storefront';
 
     $business = tenant_require_business_context(
         $conn,
@@ -123,7 +127,9 @@ try {
                 'id' => intval($product['id']),
                 'name' => $product['name'],
                 'price' => $price,
-                'quantity' => $quantity
+                'quantity' => $quantity,
+                'stock_before' => intval($product['stock']),
+                'stock_after' => intval($product['stock']) - $quantity
             ];
         }
         $productStmt->close();
@@ -188,10 +194,45 @@ try {
             if (!$stockStmt->execute()) {
                 throw new Exception('Failed to update inventory');
             }
+
+            tracking_log_inventory_adjustment(
+                $conn,
+                $businessId,
+                intval($item['id']),
+                -intval($item['quantity']),
+                'online_order',
+                $order_id,
+                intval($item['stock_before']),
+                intval($item['stock_after']),
+                'Storefront order stock deduction',
+                $actorUserId,
+                $actorUsername
+            );
         }
         
         $stmt->close();
         $stockStmt->close();
+
+        tracking_log_business_event(
+            $conn,
+            $businessId,
+            'order.online_create',
+            'order',
+            $order_id,
+            [
+                'customer_name' => $customer_name,
+                'payment_method' => $payment_method,
+                'status' => 'pending',
+                'payment_status' => 'unpaid',
+                'subtotal' => round($subtotal, 2),
+                'tax' => round($tax, 2),
+                'shipping' => round($shipping, 2),
+                'total' => round($final_total, 2),
+                'item_count' => count($validatedItems)
+            ],
+            $actorUserId,
+            $actorUsername
+        );
         
         // Commit transaction
         $conn->commit();

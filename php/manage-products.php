@@ -4,6 +4,7 @@ include 'admin-auth.php';
 require_roles_api(['owner']);
 include 'db-connection.php';
 include 'tenant-context.php';
+include_once __DIR__ . '/compliance-tracking.php';
 
 function respond($success, $message = '', $extra = []) {
     echo json_encode(array_merge([
@@ -82,10 +83,13 @@ function handle_uploaded_image($fieldName) {
 
 try {
     ensure_multitenant_schema($conn);
+    ensure_phase3_tracking_schema($conn);
     $businessId = current_business_id();
     if ($businessId <= 0) {
         respond(false, 'Invalid business context. Please sign in again.');
     }
+    $actorUserId = tracking_actor_user_id();
+    $actorUsername = tracking_actor_username();
 
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     if ($method === 'POST' && isset($_POST['_method'])) {
@@ -174,6 +178,38 @@ try {
         $newId = $conn->insert_id;
         $stmt->close();
 
+        tracking_log_business_event(
+            $conn,
+            $businessId,
+            'product.create',
+            'product',
+            intval($newId),
+            [
+                'name' => $name,
+                'price' => round($price, 2),
+                'stock' => $stock,
+                'category' => $category,
+                'featured' => $featured
+            ],
+            $actorUserId,
+            $actorUsername
+        );
+        if ($stock > 0) {
+            tracking_log_inventory_adjustment(
+                $conn,
+                $businessId,
+                intval($newId),
+                $stock,
+                'product_initial_stock',
+                0,
+                0,
+                $stock,
+                'Initial stock recorded on product creation',
+                $actorUserId,
+                $actorUsername
+            );
+        }
+
         respond(true, 'Product created successfully', ['product_id' => $newId]);
     }
 
@@ -214,6 +250,22 @@ try {
             respond(false, 'Image filename is too long');
         }
 
+        $existingStmt = $conn->prepare(
+            "SELECT id, name, price, stock, category, featured
+             FROM products
+             WHERE id = ? AND business_id = ?
+             LIMIT 1"
+        );
+        $existingStmt->bind_param('ii', $id, $businessId);
+        $existingStmt->execute();
+        $existing = $existingStmt->get_result()->fetch_assoc();
+        $existingStmt->close();
+        if (!$existing) {
+            respond(false, 'Product not found');
+        }
+
+        $previousStock = intval($existing['stock'] ?? 0);
+
         $uploadedImage = handle_uploaded_image('image_file');
         if ($uploadedImage !== null) {
             $image = $uploadedImage;
@@ -228,18 +280,48 @@ try {
         );
         $stmt->bind_param('ssdssiiii', $name, $description, $price, $category, $image, $stock, $featured, $id, $businessId);
         $stmt->execute();
-        $affected = $stmt->affected_rows;
         $stmt->close();
 
-        if ($affected === 0) {
-            $checkStmt = $conn->prepare("SELECT id FROM products WHERE id = ? AND business_id = ?");
-            $checkStmt->bind_param('ii', $id, $businessId);
-            $checkStmt->execute();
-            $exists = $checkStmt->get_result()->fetch_assoc();
-            $checkStmt->close();
-            if (!$exists) {
-                respond(false, 'Product not found');
-            }
+        tracking_log_business_event(
+            $conn,
+            $businessId,
+            'product.update',
+            'product',
+            $id,
+            [
+                'before' => [
+                    'name' => (string)($existing['name'] ?? ''),
+                    'price' => round(floatval($existing['price'] ?? 0), 2),
+                    'stock' => $previousStock,
+                    'category' => (string)($existing['category'] ?? ''),
+                    'featured' => intval($existing['featured'] ?? 0)
+                ],
+                'after' => [
+                    'name' => $name,
+                    'price' => round($price, 2),
+                    'stock' => $stock,
+                    'category' => $category,
+                    'featured' => $featured
+                ]
+            ],
+            $actorUserId,
+            $actorUsername
+        );
+
+        if ($previousStock !== $stock) {
+            tracking_log_inventory_adjustment(
+                $conn,
+                $businessId,
+                $id,
+                $stock - $previousStock,
+                'manual_stock_update',
+                0,
+                $previousStock,
+                $stock,
+                'Stock updated from manage-products',
+                $actorUserId,
+                $actorUsername
+            );
         }
 
         respond(true, 'Product updated successfully');
@@ -260,6 +342,20 @@ try {
             respond(false, 'Invalid product ID');
         }
 
+        $existingStmt = $conn->prepare(
+            "SELECT id, name, price, stock, category, featured
+             FROM products
+             WHERE id = ? AND business_id = ?
+             LIMIT 1"
+        );
+        $existingStmt->bind_param('ii', $id, $businessId);
+        $existingStmt->execute();
+        $existing = $existingStmt->get_result()->fetch_assoc();
+        $existingStmt->close();
+        if (!$existing) {
+            respond(false, 'Product not found');
+        }
+
         $stmt = $conn->prepare("DELETE FROM products WHERE id = ? AND business_id = ?");
         $stmt->bind_param('ii', $id, $businessId);
         $stmt->execute();
@@ -269,6 +365,23 @@ try {
         if ($affected === 0) {
             respond(false, 'Product not found');
         }
+
+        tracking_log_business_event(
+            $conn,
+            $businessId,
+            'product.delete',
+            'product',
+            $id,
+            [
+                'name' => (string)($existing['name'] ?? ''),
+                'price' => round(floatval($existing['price'] ?? 0), 2),
+                'stock' => intval($existing['stock'] ?? 0),
+                'category' => (string)($existing['category'] ?? ''),
+                'featured' => intval($existing['featured'] ?? 0)
+            ],
+            $actorUserId,
+            $actorUsername
+        );
 
         respond(true, 'Product deleted successfully');
     }

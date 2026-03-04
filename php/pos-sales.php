@@ -6,6 +6,7 @@ include 'db-connection.php';
 include 'payment-schema.php';
 include 'staff-tracking-schema.php';
 include 'tenant-context.php';
+include_once __DIR__ . '/compliance-tracking.php';
 
 function respond($success, $message = '', $extra = []) {
     echo json_encode(array_merge([
@@ -42,10 +43,13 @@ try {
     ensure_payment_schema($conn);
     ensure_staff_tracking_schema($conn);
     ensure_multitenant_schema($conn);
+    ensure_phase3_tracking_schema($conn);
     $businessId = current_business_id();
     if ($businessId <= 0) {
         throw new Exception('Invalid business context. Please sign in again.');
     }
+    $actorUserId = tracking_actor_user_id();
+    $actorUsername = tracking_actor_username();
 
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     $rawBody = file_get_contents('php://input');
@@ -75,22 +79,46 @@ try {
             respond(false, 'Invalid status');
         }
 
+        $currentStmt = $conn->prepare(
+            "SELECT id, customer_name, status, notes
+             FROM orders
+             WHERE id = ? AND business_id = ?
+             LIMIT 1"
+        );
+        $currentStmt->bind_param('ii', $orderId, $businessId);
+        $currentStmt->execute();
+        $current = $currentStmt->get_result()->fetch_assoc();
+        $currentStmt->close();
+        if (!$current) {
+            respond(false, 'Sale not found');
+        }
+
         $stmt = $conn->prepare("UPDATE orders SET customer_name = ?, status = ?, notes = ? WHERE id = ? AND business_id = ?");
         $stmt->bind_param('sssii', $customerName, $status, $notes, $orderId, $businessId);
         $stmt->execute();
-        $affected = $stmt->affected_rows;
         $stmt->close();
 
-        if ($affected === 0) {
-            $checkStmt = $conn->prepare("SELECT id FROM orders WHERE id = ? AND business_id = ?");
-            $checkStmt->bind_param('ii', $orderId, $businessId);
-            $checkStmt->execute();
-            $exists = $checkStmt->get_result()->fetch_assoc();
-            $checkStmt->close();
-            if (!$exists) {
-                respond(false, 'Sale not found');
-            }
-        }
+        tracking_log_business_event(
+            $conn,
+            $businessId,
+            'order.update',
+            'order',
+            $orderId,
+            [
+                'before' => [
+                    'customer_name' => (string)($current['customer_name'] ?? ''),
+                    'status' => (string)($current['status'] ?? ''),
+                    'notes' => (string)($current['notes'] ?? '')
+                ],
+                'after' => [
+                    'customer_name' => $customerName,
+                    'status' => $status,
+                    'notes' => $notes
+                ]
+            ],
+            $actorUserId,
+            $actorUsername
+        );
 
         respond(true, 'Sale updated successfully');
     }
@@ -110,16 +138,21 @@ try {
 
         $conn->begin_transaction();
         try {
-            $existsStmt = $conn->prepare("SELECT id FROM orders WHERE id = ? AND business_id = ? FOR UPDATE");
-            $existsStmt->bind_param('ii', $orderId, $businessId);
-            $existsStmt->execute();
-            $exists = $existsStmt->get_result()->fetch_assoc();
-            $existsStmt->close();
-            if (!$exists) {
+            $orderStmt = $conn->prepare(
+                "SELECT id, customer_name, status, payment_status, total
+                 FROM orders
+                 WHERE id = ? AND business_id = ?
+                 FOR UPDATE"
+            );
+            $orderStmt->bind_param('ii', $orderId, $businessId);
+            $orderStmt->execute();
+            $order = $orderStmt->get_result()->fetch_assoc();
+            $orderStmt->close();
+            if (!$order) {
                 throw new Exception('Sale not found');
             }
 
-            $itemsStmt = $conn->prepare("SELECT product_id, quantity FROM order_items WHERE order_id = ? AND business_id = ?");
+            $itemsStmt = $conn->prepare("SELECT product_id, product_name, quantity FROM order_items WHERE order_id = ? AND business_id = ?");
             $itemsStmt->bind_param('ii', $orderId, $businessId);
             $itemsStmt->execute();
             $itemsResult = $itemsStmt->get_result();
@@ -129,15 +162,40 @@ try {
             }
             $itemsStmt->close();
 
+            $stockBeforeStmt = $conn->prepare("SELECT stock FROM products WHERE id = ? AND business_id = ? FOR UPDATE");
             $restoreStmt = $conn->prepare("UPDATE products SET stock = stock + ? WHERE id = ? AND business_id = ?");
             foreach ($items as $item) {
                 $productId = intval($item['product_id'] ?? 0);
                 $quantity = intval($item['quantity'] ?? 0);
                 if ($productId > 0 && $quantity > 0) {
+                    $stockBefore = 0;
+                    $stockBeforeStmt->bind_param('ii', $productId, $businessId);
+                    $stockBeforeStmt->execute();
+                    $stockRow = $stockBeforeStmt->get_result()->fetch_assoc();
+                    if ($stockRow) {
+                        $stockBefore = intval($stockRow['stock'] ?? 0);
+                    }
+
                     $restoreStmt->bind_param('iii', $quantity, $productId, $businessId);
                     $restoreStmt->execute();
+
+                    $stockAfter = $stockBefore + $quantity;
+                    tracking_log_inventory_adjustment(
+                        $conn,
+                        $businessId,
+                        $productId,
+                        $quantity,
+                        'sale_delete_restore',
+                        $orderId,
+                        $stockBefore,
+                        $stockAfter,
+                        'Stock restored after sale deletion',
+                        $actorUserId,
+                        $actorUsername
+                    );
                 }
             }
+            $stockBeforeStmt->close();
             $restoreStmt->close();
 
             $deleteStmt = $conn->prepare("DELETE FROM orders WHERE id = ? AND business_id = ?");
@@ -149,6 +207,23 @@ try {
             if ($deleted <= 0) {
                 throw new Exception('Failed to delete sale');
             }
+
+            tracking_log_business_event(
+                $conn,
+                $businessId,
+                'order.delete',
+                'order',
+                $orderId,
+                [
+                    'customer_name' => (string)($order['customer_name'] ?? ''),
+                    'status' => (string)($order['status'] ?? ''),
+                    'payment_status' => (string)($order['payment_status'] ?? ''),
+                    'total' => round(floatval($order['total'] ?? 0), 2),
+                    'item_count' => count($items)
+                ],
+                $actorUserId,
+                $actorUsername
+            );
 
             $conn->commit();
             respond(true, 'Sale deleted and stock restored');

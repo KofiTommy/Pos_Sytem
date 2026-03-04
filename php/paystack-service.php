@@ -1,4 +1,5 @@
 <?php
+include_once __DIR__ . '/compliance-tracking.php';
 
 function payment_settings_crypto_key(): string {
     return trim((string)getenv('PAYMENT_SETTINGS_KEY'));
@@ -341,6 +342,7 @@ function append_payment_note(string $notes, string $reference): string {
 
 function finalize_paystack_intent(mysqli $conn, string $reference, array $verifiedData): array {
     ensure_payment_schema($conn);
+    ensure_phase3_tracking_schema($conn);
 
     $conn->begin_transaction();
     try {
@@ -415,7 +417,9 @@ function finalize_paystack_intent(mysqli $conn, string $reference, array $verifi
                 'id' => intval($product['id']),
                 'name' => $product['name'],
                 'price' => $price,
-                'quantity' => $quantity
+                'quantity' => $quantity,
+                'stock_before' => intval($product['stock']),
+                'stock_after' => intval($product['stock']) - $quantity
             ];
         }
         $productStmt->close();
@@ -474,9 +478,43 @@ function finalize_paystack_intent(mysqli $conn, string $reference, array $verifi
 
             $stockStmt->bind_param('iii', $item['quantity'], $item['id'], $businessId);
             $stockStmt->execute();
+
+            tracking_log_inventory_adjustment(
+                $conn,
+                $businessId,
+                intval($item['id']),
+                -intval($item['quantity']),
+                'paystack_paid_order',
+                $orderId,
+                intval($item['stock_before']),
+                intval($item['stock_after']),
+                'Paystack paid order stock deduction',
+                0,
+                'paystack_gateway'
+            );
         }
         $itemStmt->close();
         $stockStmt->close();
+
+        tracking_log_business_event(
+            $conn,
+            $businessId,
+            'order.paystack_finalize',
+            'order',
+            $orderId,
+            [
+                'payment_reference' => $reference,
+                'status' => 'paid',
+                'payment_status' => 'paid',
+                'subtotal' => round($subtotal, 2),
+                'tax' => round($tax, 2),
+                'shipping' => round($shipping, 2),
+                'total' => round($total, 2),
+                'item_count' => count($validatedItems)
+            ],
+            0,
+            'paystack_gateway'
+        );
 
         $gatewayResponseJson = json_encode($verifiedData);
         $status = 'paid';

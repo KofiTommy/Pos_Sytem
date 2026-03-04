@@ -22,6 +22,9 @@ $currentRole = current_user_role();
                 <a href="dashboard.php" class="btn btn-outline-info btn-sm">Dashboard</a>
                 <a href="manage-products.php" class="btn btn-outline-success btn-sm">Manage Products</a>
                 <a href="payment-settings.php" class="btn btn-outline-secondary btn-sm">Payment Settings</a>
+                <a href="cash-closures.php" class="btn btn-outline-dark btn-sm">Cash Closures</a>
+                <a href="audit-trail.php" class="btn btn-outline-dark btn-sm">Audit Trail</a>
+                <a href="operations-alerts.php" class="btn btn-outline-danger btn-sm">Ops Alerts</a>
                 <a href="sales.php" class="btn btn-outline-secondary btn-sm">Sales History</a>
                 <a href="users.php" class="btn btn-outline-warning btn-sm">Manage Staff</a>
                 <a href="../products.html" class="btn btn-outline-dark btn-sm">View Storefront</a>
