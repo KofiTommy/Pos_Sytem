@@ -5,6 +5,8 @@ hq_require_api();
 include __DIR__ . '/db-connection.php';
 include __DIR__ . '/tenant-context.php';
 
+const HQ_ALERT_WORKFLOW_STATUSES = ['open', 'acknowledged', 'resolved'];
+
 function respond(bool $success, string $message = '', array $extra = [], int $statusCode = 200): void {
     if (!headers_sent()) {
         http_response_code($statusCode);
@@ -49,6 +51,11 @@ function bind_dynamic_params(mysqli_stmt $stmt, string $types, array $values): v
     call_user_func_array([$stmt, 'bind_param'], $params);
 }
 
+function hq_alert_key(string $businessCode, string $title, string $detail): string {
+    $raw = strtolower(trim($businessCode) . '|' . trim($title) . '|' . trim($detail));
+    return substr(hash('sha256', $raw), 0, 24);
+}
+
 function build_shop_alerts(array $shops): array {
     $alerts = [];
 
@@ -63,54 +70,58 @@ function build_shop_alerts(array $shops): array {
         $newMessages = intval($shop['new_messages'] ?? 0);
         $status = strtolower(trim((string)($shop['status'] ?? '')));
 
-        if ($ordersCount >= 5 && $pendingRate > 0.2) {
+        $pushAlert = function (string $severity, string $title, string $detail) use (&$alerts, $businessCode, $businessName): void {
             $alerts[] = [
-                'severity' => $pendingRate >= 0.35 ? 'high' : 'medium',
+                'alert_key' => hq_alert_key($businessCode, $title, $detail),
+                'severity' => $severity,
                 'business_code' => $businessCode,
                 'business_name' => $businessName,
-                'title' => 'High pending-order ratio',
-                'detail' => 'Pending order ratio is above expected baseline for this period.'
+                'title' => $title,
+                'detail' => $detail,
+                'workflow_status' => 'open',
+                'workflow_updated_by' => '',
+                'workflow_updated_at' => ''
             ];
+        };
+
+        if ($ordersCount >= 5 && $pendingRate > 0.2) {
+            $pushAlert(
+                $pendingRate >= 0.35 ? 'high' : 'medium',
+                'High pending-order ratio',
+                'Pending order ratio is above expected baseline for this period.'
+            );
         }
 
         if ($ordersCount >= 5 && $issueRate > 0.08) {
-            $alerts[] = [
-                'severity' => $issueRate >= 0.15 ? 'high' : 'medium',
-                'business_code' => $businessCode,
-                'business_name' => $businessName,
-                'title' => 'High cancellation/refund rate',
-                'detail' => 'Cancelled and refunded orders are elevated for this period.'
-            ];
+            $pushAlert(
+                $issueRate >= 0.15 ? 'high' : 'medium',
+                'High cancellation/refund rate',
+                'Cancelled and refunded orders are elevated for this period.'
+            );
         }
 
         if ($stockoutCount >= 10 || $lowStockCount >= 25) {
-            $alerts[] = [
-                'severity' => $stockoutCount >= 10 ? 'high' : 'medium',
-                'business_code' => $businessCode,
-                'business_name' => $businessName,
-                'title' => 'Inventory risk',
-                'detail' => 'Stockouts or low-stock product count needs intervention.'
-            ];
+            $pushAlert(
+                $stockoutCount >= 10 ? 'high' : 'medium',
+                'Inventory risk',
+                'Stockouts or low-stock product count needs intervention.'
+            );
         }
 
         if ($newMessages >= 10) {
-            $alerts[] = [
-                'severity' => 'medium',
-                'business_code' => $businessCode,
-                'business_name' => $businessName,
-                'title' => 'Customer message backlog',
-                'detail' => 'Unresolved customer messages are accumulating.'
-            ];
+            $pushAlert(
+                'medium',
+                'Customer message backlog',
+                'Unresolved customer messages are accumulating.'
+            );
         }
 
         if ($status === 'active' && $ordersCount === 0) {
-            $alerts[] = [
-                'severity' => 'info',
-                'business_code' => $businessCode,
-                'business_name' => $businessName,
-                'title' => 'No sales in selected range',
-                'detail' => 'Active shop has zero orders in current report range.'
-            ];
+            $pushAlert(
+                'info',
+                'No sales in selected range',
+                'Active shop has zero orders in current report range.'
+            );
         }
     }
 
@@ -130,6 +141,90 @@ function build_shop_alerts(array $shops): array {
     });
 
     return array_slice($alerts, 0, 40);
+}
+
+function hq_ensure_alert_workflow_table(mysqli $conn): void {
+    $conn->query(
+        "CREATE TABLE IF NOT EXISTS hq_alert_workflow (
+            id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            alert_key VARCHAR(64) NOT NULL,
+            business_code VARCHAR(64) NOT NULL DEFAULT '',
+            title VARCHAR(190) NOT NULL DEFAULT '',
+            detail VARCHAR(255) NOT NULL DEFAULT '',
+            status VARCHAR(20) NOT NULL DEFAULT 'open',
+            updated_by VARCHAR(120) NOT NULL DEFAULT '',
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uk_hq_alert_key (alert_key),
+            INDEX idx_hq_alert_status_time (status, updated_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+    );
+}
+
+function hq_apply_alert_workflow(mysqli $conn, array $alerts): array {
+    if (count($alerts) === 0) {
+        return $alerts;
+    }
+
+    $keys = [];
+    foreach ($alerts as $alert) {
+        $key = trim((string)($alert['alert_key'] ?? ''));
+        if ($key !== '') {
+            $keys[] = $key;
+        }
+    }
+    $keys = array_values(array_unique($keys));
+    if (count($keys) === 0) {
+        return $alerts;
+    }
+
+    $placeholders = implode(',', array_fill(0, count($keys), '?'));
+    $types = str_repeat('s', count($keys));
+    $sql =
+        "SELECT
+            alert_key,
+            status,
+            updated_by,
+            DATE_FORMAT(updated_at, '%Y-%m-%d %H:%i:%s') AS updated_at
+         FROM hq_alert_workflow
+         WHERE alert_key IN (" . $placeholders . ")";
+
+    $stmt = $conn->prepare($sql);
+    bind_dynamic_params($stmt, $types, $keys);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    $stateMap = [];
+    while ($row = $result->fetch_assoc()) {
+        $alertKey = trim((string)($row['alert_key'] ?? ''));
+        if ($alertKey === '') {
+            continue;
+        }
+
+        $status = strtolower(trim((string)($row['status'] ?? 'open')));
+        if (!in_array($status, HQ_ALERT_WORKFLOW_STATUSES, true)) {
+            $status = 'open';
+        }
+
+        $stateMap[$alertKey] = [
+            'workflow_status' => $status,
+            'workflow_updated_by' => (string)($row['updated_by'] ?? ''),
+            'workflow_updated_at' => (string)($row['updated_at'] ?? '')
+        ];
+    }
+    $stmt->close();
+
+    foreach ($alerts as &$alert) {
+        $alertKey = trim((string)($alert['alert_key'] ?? ''));
+        if ($alertKey === '' || !isset($stateMap[$alertKey])) {
+            continue;
+        }
+        $alert['workflow_status'] = (string)($stateMap[$alertKey]['workflow_status'] ?? 'open');
+        $alert['workflow_updated_by'] = (string)($stateMap[$alertKey]['workflow_updated_by'] ?? '');
+        $alert['workflow_updated_at'] = (string)($stateMap[$alertKey]['workflow_updated_at'] ?? '');
+    }
+    unset($alert);
+
+    return $alerts;
 }
 
 try {
@@ -428,6 +523,71 @@ try {
     });
 
     $alerts = build_shop_alerts($scoreboard);
+    hq_ensure_alert_workflow_table($conn);
+    $alerts = hq_apply_alert_workflow($conn, $alerts);
+    usort($alerts, function ($a, $b) {
+        $statusWeight = ['open' => 3, 'acknowledged' => 2, 'resolved' => 1];
+        $severityWeight = ['high' => 3, 'medium' => 2, 'info' => 1];
+
+        $aStatus = strtolower((string)($a['workflow_status'] ?? 'open'));
+        $bStatus = strtolower((string)($b['workflow_status'] ?? 'open'));
+        $statusCmp = intval($statusWeight[$bStatus] ?? 0) <=> intval($statusWeight[$aStatus] ?? 0);
+        if ($statusCmp !== 0) {
+            return $statusCmp;
+        }
+
+        $aSeverity = strtolower((string)($a['severity'] ?? 'info'));
+        $bSeverity = strtolower((string)($b['severity'] ?? 'info'));
+        $severityCmp = intval($severityWeight[$bSeverity] ?? 0) <=> intval($severityWeight[$aSeverity] ?? 0);
+        if ($severityCmp !== 0) {
+            return $severityCmp;
+        }
+
+        return strcmp((string)($a['business_name'] ?? ''), (string)($b['business_name'] ?? ''));
+    });
+
+    $trendStmt = $conn->prepare(
+        "SELECT
+            DATE(created_at) AS metric_day,
+            COUNT(*) AS orders_count,
+            COALESCE(SUM(total), 0) AS gross_sales,
+            COALESCE(SUM(CASE WHEN payment_status = 'paid' THEN total ELSE 0 END), 0) AS paid_sales
+         FROM orders
+         WHERE created_at >= ? AND created_at < ?
+         GROUP BY DATE(created_at)
+         ORDER BY metric_day ASC"
+    );
+    $trendStmt->bind_param('ss', $rangeStart, $rangeEndExclusive);
+    $trendStmt->execute();
+    $trendResult = $trendStmt->get_result();
+    $trendByDay = [];
+    while ($row = $trendResult->fetch_assoc()) {
+        $metricDay = (string)($row['metric_day'] ?? '');
+        if ($metricDay === '') {
+            continue;
+        }
+        $trendByDay[$metricDay] = [
+            'orders' => intval($row['orders_count'] ?? 0),
+            'gross_sales' => round(floatval($row['gross_sales'] ?? 0), 2),
+            'paid_sales' => round(floatval($row['paid_sales'] ?? 0), 2)
+        ];
+    }
+    $trendStmt->close();
+
+    $trendLabels = [];
+    $trendOrders = [];
+    $trendGrossSales = [];
+    $trendPaidSales = [];
+    $cursorDate = clone $fromDate;
+    while ($cursorDate <= $toDate) {
+        $day = $cursorDate->format('Y-m-d');
+        $point = $trendByDay[$day] ?? ['orders' => 0, 'gross_sales' => 0.0, 'paid_sales' => 0.0];
+        $trendLabels[] = $day;
+        $trendOrders[] = intval($point['orders'] ?? 0);
+        $trendGrossSales[] = round(floatval($point['gross_sales'] ?? 0), 2);
+        $trendPaidSales[] = round(floatval($point['paid_sales'] ?? 0), 2);
+        $cursorDate->modify('+1 day');
+    }
 
     $ordersCount = intval($salesSummary['orders_count'] ?? 0);
     $grossSales = floatval($salesSummary['gross_sales'] ?? 0);
@@ -453,6 +613,12 @@ try {
             'stockout_products' => intval($stockSummary['stockout_products'] ?? 0),
             'new_messages' => $newMessages,
             'no_sales_3d' => intval($noSalesSummary['no_sales_3d'] ?? 0)
+        ],
+        'trends' => [
+            'labels' => $trendLabels,
+            'orders' => $trendOrders,
+            'gross_sales' => $trendGrossSales,
+            'paid_sales' => $trendPaidSales
         ],
         'scoreboard' => $scoreboard,
         'alerts' => $alerts,

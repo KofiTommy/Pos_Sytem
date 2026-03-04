@@ -2,6 +2,18 @@
 include '../../php/admin-auth.php';
 require_roles_page(['owner'], '../login.html');
 $currentRole = current_user_role();
+$currentBusinessCode = current_business_code();
+$scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+$host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+$scriptName = str_replace('\\', '/', (string)($_SERVER['SCRIPT_NAME'] ?? ''));
+$appBasePath = preg_replace('#/pages/admin/[^/]+$#', '', $scriptName);
+if (!is_string($appBasePath) || $appBasePath === '') {
+    $appBasePath = '/possystem';
+}
+$appBaseUrl = $scheme . '://' . $host . $appBasePath;
+$tenantStorefrontUrl = $currentBusinessCode !== ''
+    ? ($appBaseUrl . '/b/' . rawurlencode($currentBusinessCode) . '/')
+    : ($appBaseUrl . '/index.html');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -91,6 +103,65 @@ $currentRole = current_user_role();
             margin-bottom: 10px;
         }
 
+        .owner-mobile-nav .offcanvas-header {
+            border-bottom: 1px solid #e9eff5;
+        }
+
+        .owner-mobile-nav .list-group-item {
+            border-radius: 10px;
+            margin-bottom: 6px;
+            border: 1px solid #e9eff5;
+        }
+
+        .owner-mobile-nav .list-group-item.active {
+            background: var(--dash-primary);
+            border-color: var(--dash-primary);
+            color: #fff;
+        }
+
+        .owner-mobile-summary {
+            background: #f5f9ff;
+            border: 1px solid #dbe8f4;
+            border-radius: 10px;
+            padding: 0.7rem;
+        }
+
+        .owner-mobile-summary .badge {
+            min-width: 32px;
+        }
+
+        .owner-desktop-nav {
+            align-items: center;
+            gap: 0.45rem;
+            flex-wrap: wrap;
+        }
+
+        .owner-desktop-primary {
+            display: flex;
+            gap: 0.45rem;
+            flex-wrap: wrap;
+        }
+
+        .owner-mobile-advanced summary {
+            list-style: none;
+            cursor: pointer;
+            font-weight: 600;
+            color: #30445c;
+            background: #f7faff;
+            border: 1px solid #dbe8f4;
+            border-radius: 10px;
+            padding: 0.55rem 0.7rem;
+        }
+
+        .owner-mobile-advanced summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .owner-mobile-advanced[open] summary {
+            border-bottom-left-radius: 6px;
+            border-bottom-right-radius: 6px;
+        }
+
         @media (max-width: 992px) {
             .hero-card .btn {
                 width: 100%;
@@ -120,18 +191,33 @@ $currentRole = current_user_role();
             <a class="navbar-brand fw-bold" href="dashboard.php">
                 <i class="fas fa-chart-pie"></i> Admin Analytics
             </a>
-            <div class="ms-auto d-flex gap-2 admin-actions">
-                <a href="dashboard.php" class="btn btn-info btn-sm text-white">Dashboard</a>
-                <a href="pos.php" class="btn btn-primary btn-sm">New Sale (POS)</a>
-                <a href="manage-products.php" class="btn btn-outline-success btn-sm">Manage Products</a>
-                <a href="business-settings.php" class="btn btn-outline-primary btn-sm">Business Info</a>
-                <a href="payment-settings.php" class="btn btn-outline-secondary btn-sm">Payment Settings</a>
-                <a href="users.php" class="btn btn-outline-warning btn-sm">Manage Staff</a>
-                <a href="cash-closures.php" class="btn btn-outline-dark btn-sm">Cash Closures</a>
-                <a href="audit-trail.php" class="btn btn-outline-dark btn-sm">Audit Trail</a>
-                <a href="operations-alerts.php" class="btn btn-outline-danger btn-sm">Ops Alerts</a>
-                <a href="sales.php" class="btn btn-outline-secondary btn-sm">Sales History</a>
-                <a href="../products.html" class="btn btn-outline-dark btn-sm">View Storefront</a>
+            <button class="btn btn-outline-secondary btn-sm ms-auto position-relative d-lg-none" type="button"
+                data-bs-toggle="offcanvas" data-bs-target="#ownerMobileNav" aria-controls="ownerMobileNav">
+                <i class="fas fa-bars"></i> Menu
+                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none" data-notif-total>0</span>
+            </button>
+            <div class="ms-auto d-none d-lg-flex owner-desktop-nav admin-actions">
+                <div class="owner-desktop-primary">
+                    <a href="pos.php" class="btn btn-primary btn-sm"><i class="fas fa-cash-register me-1"></i>New Sale</a>
+                    <a href="sales.php" class="btn btn-outline-secondary btn-sm"><i class="fas fa-chart-line me-1"></i>Sales</a>
+                    <a href="manage-products.php" class="btn btn-outline-success btn-sm"><i class="fas fa-boxes me-1"></i>Products</a>
+                    <a href="#clientMessagesSection" class="btn btn-outline-info btn-sm"><i class="fas fa-envelope me-1"></i>Messages</a>
+                </div>
+                <div class="dropdown">
+                    <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        More
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="dashboard.php">Dashboard</a></li>
+                        <li><a class="dropdown-item" href="operations-alerts.php">Ops Alerts</a></li>
+                        <li><a class="dropdown-item" href="business-settings.php">Business Info</a></li>
+                        <li><a class="dropdown-item" href="payment-settings.php">Payment Settings</a></li>
+                        <li><a class="dropdown-item" href="users.php">Manage Staff</a></li>
+                        <li><a class="dropdown-item" href="cash-closures.php">Cash Closures</a></li>
+                        <li><a class="dropdown-item" href="audit-trail.php">Audit Trail</a></li>
+                    </ul>
+                </div>
+                <a href="<?php echo htmlspecialchars($tenantStorefrontUrl); ?>" class="btn btn-outline-dark btn-sm"><i class="fas fa-store me-1"></i>Storefront</a>
                 <span class="badge bg-warning text-dark align-self-center text-uppercase"><?php echo htmlspecialchars($currentRole); ?></span>
                 <div class="dropdown">
                     <button class="btn btn-outline-secondary btn-sm position-relative" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Notifications">
@@ -158,6 +244,81 @@ $currentRole = current_user_role();
             </div>
         </div>
     </nav>
+
+    <div class="offcanvas offcanvas-end owner-mobile-nav" tabindex="-1" id="ownerMobileNav" aria-labelledby="ownerMobileNavLabel">
+        <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="ownerMobileNavLabel"><i class="fas fa-compass me-1"></i> Owner Menu</h5>
+            <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        </div>
+        <div class="offcanvas-body">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <span class="badge bg-warning text-dark text-uppercase"><?php echo htmlspecialchars($currentRole); ?></span>
+                <span class="small text-muted">Quick navigation</span>
+            </div>
+            <div class="owner-mobile-summary mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="small fw-semibold">Pending Orders</span>
+                    <span class="badge bg-warning text-dark" data-pending-orders>0</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="small fw-semibold">New Messages</span>
+                    <span class="badge bg-primary" data-new-messages>0</span>
+                </div>
+            </div>
+
+            <p class="small text-muted mb-2">Operations</p>
+            <div class="list-group mb-3">
+                <a href="dashboard.php" class="list-group-item list-group-item-action active">
+                    <i class="fas fa-chart-pie me-2"></i>Dashboard
+                </a>
+                <a href="pos.php" class="list-group-item list-group-item-action">
+                    <i class="fas fa-cash-register me-2"></i>New Sale (POS)
+                </a>
+                <a href="sales.php" class="list-group-item list-group-item-action">
+                    <i class="fas fa-chart-line me-2"></i>Sales History
+                </a>
+                <a href="manage-products.php" class="list-group-item list-group-item-action">
+                    <i class="fas fa-boxes me-2"></i>Manage Products
+                </a>
+                <a href="#clientMessagesSection" class="list-group-item list-group-item-action">
+                    <i class="fas fa-envelope me-2"></i>Client Messages
+                </a>
+            </div>
+
+            <details class="owner-mobile-advanced mb-3">
+                <summary><i class="fas fa-sliders me-2"></i>Advanced Tools</summary>
+                <div class="list-group mt-2">
+                    <a href="operations-alerts.php" class="list-group-item list-group-item-action">
+                        <i class="fas fa-triangle-exclamation me-2"></i>Ops Alerts
+                    </a>
+                    <a href="business-settings.php" class="list-group-item list-group-item-action">
+                        <i class="fas fa-briefcase me-2"></i>Business Info
+                    </a>
+                    <a href="payment-settings.php" class="list-group-item list-group-item-action">
+                        <i class="fas fa-shield-alt me-2"></i>Payment Settings
+                    </a>
+                    <a href="users.php" class="list-group-item list-group-item-action">
+                        <i class="fas fa-users-cog me-2"></i>Manage Staff
+                    </a>
+                    <a href="cash-closures.php" class="list-group-item list-group-item-action">
+                        <i class="fas fa-cash-register me-2"></i>Cash Closures
+                    </a>
+                    <a href="audit-trail.php" class="list-group-item list-group-item-action">
+                        <i class="fas fa-clipboard-list me-2"></i>Audit Trail
+                    </a>
+                </div>
+            </details>
+
+            <div class="d-grid gap-2">
+                <a href="<?php echo htmlspecialchars($tenantStorefrontUrl); ?>" class="btn btn-outline-dark">
+                    <i class="fas fa-store me-1"></i> View Storefront
+                </a>
+                <a href="../../php/logout.php" class="btn btn-danger">
+                    <i class="fas fa-right-from-bracket me-1"></i> Logout
+                </a>
+            </div>
+        </div>
+    </div>
 
     <main class="container dashboard-shell">
         <div class="card hero-card mb-4">
@@ -893,6 +1054,38 @@ $currentRole = current_user_role();
             document.getElementById('lowStockThreshold').value = 5;
         }
 
+        function setupOwnerMobileNav() {
+            const offcanvasEl = document.getElementById('ownerMobileNav');
+            if (!offcanvasEl || typeof bootstrap === 'undefined' || !bootstrap.Offcanvas) {
+                return;
+            }
+
+            const offcanvas = bootstrap.Offcanvas.getOrCreateInstance(offcanvasEl);
+            offcanvasEl.querySelectorAll('a[href]').forEach((link) => {
+                link.addEventListener('click', (event) => {
+                    const href = String(link.getAttribute('href') || '').trim();
+                    if (!href || href === '#') {
+                        return;
+                    }
+
+                    if (href.startsWith('#')) {
+                        const target = document.querySelector(href);
+                        if (!target) {
+                            return;
+                        }
+                        event.preventDefault();
+                        offcanvas.hide();
+                        setTimeout(() => {
+                            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }, 250);
+                        return;
+                    }
+
+                    offcanvas.hide();
+                });
+            });
+        }
+
         document.getElementById('applyFilterBtn').addEventListener('click', () => {
             loadDashboard().catch((error) => alert(error.message));
         });
@@ -919,6 +1112,7 @@ $currentRole = current_user_role();
         });
 
         contactMessageModal = new bootstrap.Modal(document.getElementById('contactMessageModal'));
+        setupOwnerMobileNav();
         setDefaultFilters();
         loadDashboard().catch((error) => alert(error.message));
     </script>

@@ -4,7 +4,6 @@ require_roles_page(['owner', 'sales'], '../login.html');
 $currentRole = current_user_role();
 $isOwner = $currentRole === 'owner';
 $currentBusinessCode = current_business_code();
-$tenantQuery = $currentBusinessCode !== '' ? ('?tenant=' . rawurlencode($currentBusinessCode)) : '';
 $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
 $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
 $scriptName = str_replace('\\', '/', (string)($_SERVER['SCRIPT_NAME'] ?? ''));
@@ -13,7 +12,9 @@ if (!is_string($appBasePath) || $appBasePath === '') {
     $appBasePath = '/possystem';
 }
 $appBaseUrl = $scheme . '://' . $host . $appBasePath;
-$tenantStorefrontUrl = $appBaseUrl . '/index.html' . $tenantQuery;
+$tenantStorefrontUrl = $currentBusinessCode !== ''
+    ? ($appBaseUrl . '/b/' . rawurlencode($currentBusinessCode) . '/')
+    : ($appBaseUrl . '/index.html');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -25,12 +26,53 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html' . $tenantQuery;
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="../../css/style.css">
+    <style>
+        .pos-mobile-nav .offcanvas-header {
+            border-bottom: 1px solid #e9eff5;
+        }
+
+        .pos-mobile-nav .list-group-item {
+            border-radius: 10px;
+            margin-bottom: 6px;
+            border: 1px solid #e9eff5;
+        }
+
+        .pos-mobile-summary {
+            background: #f5f9ff;
+            border: 1px solid #dbe8f4;
+            border-radius: 10px;
+            padding: 0.7rem;
+        }
+
+        .pos-cart-actions .btn {
+            min-width: 38px;
+        }
+
+        @media (max-width: 576px) {
+            #checkoutBtn,
+            #clearBtn,
+            #searchBtn,
+            #refreshBtn {
+                min-height: 44px;
+            }
+
+            .pos-cart-actions .btn {
+                min-width: 42px;
+                min-height: 38px;
+            }
+        }
+    </style>
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom sticky-top">
         <div class="container">
             <a class="navbar-brand fw-bold" href="<?php echo $isOwner ? 'dashboard.php' : 'pos.php'; ?>"><i class="fas fa-cash-register"></i> POS Terminal</a>
-            <div class="ms-auto d-flex gap-2 admin-actions">
+            <button class="btn btn-outline-secondary btn-sm ms-auto position-relative d-lg-none" type="button"
+                data-bs-toggle="offcanvas" data-bs-target="#posMobileNav" aria-controls="posMobileNav">
+                <i class="fas fa-bars"></i> Menu
+                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none" data-notif-total>0</span>
+            </button>
+            <div class="ms-auto d-none d-lg-flex gap-2 admin-actions">
                 <?php if ($isOwner): ?>
                 <a href="dashboard.php" class="btn btn-outline-info btn-sm">Dashboard</a>
                 <a href="manage-products.php" class="btn btn-outline-success btn-sm">Manage Products</a>
@@ -69,6 +111,61 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html' . $tenantQuery;
             </div>
         </div>
     </nav>
+
+    <div class="offcanvas offcanvas-end pos-mobile-nav" tabindex="-1" id="posMobileNav" aria-labelledby="posMobileNavLabel">
+        <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="posMobileNavLabel"><i class="fas fa-cash-register me-1"></i> POS Menu</h5>
+            <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        </div>
+        <div class="offcanvas-body">
+            <div class="pos-mobile-summary mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="small fw-semibold">Pending Orders</span>
+                    <span class="badge bg-warning text-dark" data-pending-orders>0</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="small fw-semibold">New Messages</span>
+                    <span class="badge bg-primary" data-new-messages>0</span>
+                </div>
+            </div>
+
+            <p class="small text-muted mb-2">Quick Actions</p>
+            <div class="list-group mb-3">
+                <?php if ($isOwner): ?>
+                <a href="dashboard.php" class="list-group-item list-group-item-action">
+                    <i class="fas fa-chart-pie me-2"></i>Dashboard
+                </a>
+                <?php endif; ?>
+                <a href="sales.php" class="list-group-item list-group-item-action">
+                    <i class="fas fa-chart-line me-2"></i>Sales History
+                </a>
+                <a href="<?php echo htmlspecialchars($tenantStorefrontUrl); ?>" class="list-group-item list-group-item-action">
+                    <i class="fas fa-store me-2"></i>View Storefront
+                </a>
+            </div>
+
+            <?php if ($isOwner): ?>
+            <details class="mb-3">
+                <summary class="btn btn-outline-secondary btn-sm w-100 text-start">
+                    <i class="fas fa-sliders me-2"></i>Owner Tools
+                </summary>
+                <div class="list-group mt-2">
+                    <a href="manage-products.php" class="list-group-item list-group-item-action"><i class="fas fa-boxes me-2"></i>Manage Products</a>
+                    <a href="business-settings.php" class="list-group-item list-group-item-action"><i class="fas fa-briefcase me-2"></i>Business Info</a>
+                    <a href="payment-settings.php" class="list-group-item list-group-item-action"><i class="fas fa-shield-alt me-2"></i>Payment Settings</a>
+                    <a href="users.php" class="list-group-item list-group-item-action"><i class="fas fa-users-cog me-2"></i>Manage Staff</a>
+                    <a href="cash-closures.php" class="list-group-item list-group-item-action"><i class="fas fa-cash-register me-2"></i>Cash Closures</a>
+                    <a href="audit-trail.php" class="list-group-item list-group-item-action"><i class="fas fa-clipboard-list me-2"></i>Audit Trail</a>
+                    <a href="operations-alerts.php" class="list-group-item list-group-item-action"><i class="fas fa-triangle-exclamation me-2"></i>Ops Alerts</a>
+                </div>
+            </details>
+            <?php endif; ?>
+
+            <div class="d-grid">
+                <a href="../../php/logout.php" class="btn btn-danger"><i class="fas fa-right-from-bracket me-1"></i> Logout</a>
+            </div>
+        </div>
+    </div>
 
     <main class="container py-4">
         <div class="alert alert-info d-flex flex-column flex-md-row gap-2 justify-content-between align-items-md-center">
@@ -154,6 +251,7 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html' . $tenantQuery;
         const cart = new Map();
         let products = [];
         let lastReceiptData = null;
+        let checkoutInFlight = false;
         const defaultBusinessInfo = {
             business_name: 'Mother Care',
             business_email: 'info@mothercare.com',
@@ -217,10 +315,10 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html' . $tenantQuery;
                             </div>
                             <div class="d-flex justify-content-between align-items-center mt-1">
                                 <span class="text-muted">Qty: ${item.quantity}</span>
-                                <div class="btn-group btn-group-sm">
-                                    <button class="btn btn-outline-secondary" onclick="changeQty(${item.id}, -1)">-</button>
-                                    <button class="btn btn-outline-secondary" onclick="changeQty(${item.id}, 1)">+</button>
-                                    <button class="btn btn-outline-danger" onclick="removeItem(${item.id})">x</button>
+                                <div class="btn-group btn-group-sm pos-cart-actions">
+                                    <button type="button" class="btn btn-outline-secondary" data-cart-action="decrease" data-product-id="${item.id}" aria-label="Decrease quantity">-</button>
+                                    <button type="button" class="btn btn-outline-secondary" data-cart-action="increase" data-product-id="${item.id}" aria-label="Increase quantity">+</button>
+                                    <button type="button" class="btn btn-outline-danger" data-cart-action="remove" data-product-id="${item.id}" aria-label="Remove item">x</button>
                                 </div>
                             </div>
                         </div>
@@ -269,7 +367,7 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html' . $tenantQuery;
                                     <span class="fw-bold">${asMoney(product.price)}</span>
                                     <span class="badge ${stockClass}">${stock} in stock</span>
                                 </div>
-                                <button type="button" class="btn btn-primary btn-sm w-100 mt-3" ${stock <= 0 ? 'disabled' : ''} onclick="event.stopPropagation(); addToCart(${productId})">
+                                <button type="button" class="btn btn-primary btn-sm w-100 mt-3" data-pos-add="${productId}" ${stock <= 0 ? 'disabled' : ''}>
                                     Add to Sale
                                 </button>
                             </div>
@@ -334,11 +432,41 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html' . $tenantQuery;
         }
 
         document.getElementById('productsGrid').addEventListener('click', (event) => {
+            const addBtn = event.target.closest('button[data-pos-add]');
+            if (addBtn) {
+                event.preventDefault();
+                const productId = Number(addBtn.getAttribute('data-pos-add'));
+                if (Number.isFinite(productId)) {
+                    addToCart(productId);
+                }
+                return;
+            }
             const card = event.target.closest('.product-card[data-product-id]');
             if (!card) return;
             const productId = Number(card.getAttribute('data-product-id'));
             if (!Number.isFinite(productId)) return;
             addToCart(productId);
+        });
+
+        document.getElementById('cartItems').addEventListener('click', (event) => {
+            const button = event.target.closest('button[data-cart-action]');
+            if (!button) return;
+
+            const action = String(button.getAttribute('data-cart-action') || '');
+            const productId = Number(button.getAttribute('data-product-id') || 0);
+            if (!Number.isFinite(productId) || productId <= 0) return;
+
+            if (action === 'decrease') {
+                changeQty(productId, -1);
+                return;
+            }
+            if (action === 'increase') {
+                changeQty(productId, 1);
+                return;
+            }
+            if (action === 'remove') {
+                removeItem(productId);
+            }
         });
 
         document.getElementById('productsGrid').addEventListener('keydown', (event) => {
@@ -360,49 +488,67 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html' . $tenantQuery;
         }
 
         async function checkout() {
+            if (checkoutInFlight) {
+                return;
+            }
             if (cart.size === 0) {
                 alert('Cart is empty');
                 return;
             }
 
-            const payload = {
-                customer_name: document.getElementById('customerName').value.trim(),
-                payment_method: document.getElementById('paymentMethod').value,
-                cash_received: Number(document.getElementById('cashReceived').value || 0),
-                tax_rate: Number(document.getElementById('taxRate').value || 0),
-                discount_amount: Number(document.getElementById('discountAmount').value || 0),
-                items: Array.from(cart.values()).map((i) => ({ id: i.id, quantity: i.quantity }))
-            };
+            const checkoutBtn = document.getElementById('checkoutBtn');
+            const clearBtn = document.getElementById('clearBtn');
+            const originalCheckoutLabel = checkoutBtn.innerHTML;
+            checkoutInFlight = true;
+            checkoutBtn.disabled = true;
+            clearBtn.disabled = true;
+            checkoutBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Processing...';
 
-            const response = await fetch('../../php/pos-checkout.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            const data = await response.json();
-            if (!data.success) {
-                throw new Error(data.message || 'Checkout failed');
+            try {
+                const payload = {
+                    customer_name: document.getElementById('customerName').value.trim(),
+                    payment_method: document.getElementById('paymentMethod').value,
+                    cash_received: Number(document.getElementById('cashReceived').value || 0),
+                    tax_rate: Number(document.getElementById('taxRate').value || 0),
+                    discount_amount: Number(document.getElementById('discountAmount').value || 0),
+                    items: Array.from(cart.values()).map((i) => ({ id: i.id, quantity: i.quantity }))
+                };
+
+                const response = await fetch('../../php/pos-checkout.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                if (!data.success) {
+                    throw new Error(data.message || 'Checkout failed');
+                }
+
+                const summary = data.summary;
+                lastReceiptData = { orderId: data.order_id, summary: summary };
+                document.getElementById('saleResult').innerHTML = `
+                    <div class="alert alert-success border-0 shadow-sm">
+                        <h5 class="mb-2">Sale Completed (Order #${data.order_id})</h5>
+                        <p class="mb-1">Customer: ${escapeHtml(summary.customer_name)}</p>
+                        <p class="mb-1">Payment: ${escapeHtml(summary.payment_method)}</p>
+                        <p class="mb-1">Subtotal: ${asMoney(summary.subtotal)}</p>
+                        <p class="mb-1">Discount: ${asMoney(summary.discount)}</p>
+                        <p class="mb-1">Tax (${asPercent(summary.tax_rate)}%): ${asMoney(summary.tax)}</p>
+                        <p class="mb-1"><strong>Total: ${asMoney(summary.total)}</strong></p>
+                        <p class="mb-3">Change: ${asMoney(summary.change_due)}</p>
+                        <button class="btn btn-sm btn-outline-success" onclick="printLatestReceipt()">Print Receipt</button>
+                        <a class="btn btn-sm btn-outline-primary ms-2" href="sales.php">View in Sales History</a>
+                    </div>
+                `;
+
+                clearCart(false);
+                await loadProducts();
+            } finally {
+                checkoutInFlight = false;
+                checkoutBtn.disabled = false;
+                clearBtn.disabled = false;
+                checkoutBtn.innerHTML = originalCheckoutLabel;
             }
-
-            const summary = data.summary;
-            lastReceiptData = { orderId: data.order_id, summary: summary };
-            document.getElementById('saleResult').innerHTML = `
-                <div class="alert alert-success border-0 shadow-sm">
-                    <h5 class="mb-2">Sale Completed (Order #${data.order_id})</h5>
-                    <p class="mb-1">Customer: ${escapeHtml(summary.customer_name)}</p>
-                    <p class="mb-1">Payment: ${escapeHtml(summary.payment_method)}</p>
-                    <p class="mb-1">Subtotal: ${asMoney(summary.subtotal)}</p>
-                    <p class="mb-1">Discount: ${asMoney(summary.discount)}</p>
-                    <p class="mb-1">Tax (${asPercent(summary.tax_rate)}%): ${asMoney(summary.tax)}</p>
-                    <p class="mb-1"><strong>Total: ${asMoney(summary.total)}</strong></p>
-                    <p class="mb-3">Change: ${asMoney(summary.change_due)}</p>
-                    <button class="btn btn-sm btn-outline-success" onclick="printLatestReceipt()">Print Receipt</button>
-                    <a class="btn btn-sm btn-outline-primary ms-2" href="sales.php">View in Sales History</a>
-                </div>
-            `;
-
-            clearCart(false);
-            await loadProducts();
         }
 
         function printLatestReceipt() {
@@ -570,10 +716,22 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html' . $tenantQuery;
             } catch (error) {
                 input.focus();
                 input.select();
-                alert('Press Ctrl+C to copy the shop URL.');
+                alert('Copy failed. On mobile, tap and hold the URL field to copy.');
             }
         });
 
+        function setupPosMobileNav() {
+            const offcanvasEl = document.getElementById('posMobileNav');
+            if (!offcanvasEl || typeof bootstrap === 'undefined' || !bootstrap.Offcanvas) {
+                return;
+            }
+            const offcanvas = bootstrap.Offcanvas.getOrCreateInstance(offcanvasEl);
+            offcanvasEl.querySelectorAll('a[href]').forEach((link) => {
+                link.addEventListener('click', () => offcanvas.hide());
+            });
+        }
+
+        setupPosMobileNav();
         loadProducts().then(renderCart).catch((error) => alert(error.message));
     </script>
 </body>

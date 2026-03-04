@@ -159,7 +159,7 @@ try {
 
     respond(true, 'HQ login successful.', [
         'username' => hq_current_username(),
-        'redirect' => '../pages/hq/dashboard.php'
+        'redirect' => 'dashboard.php'
     ]);
 } catch (Exception $e) {
     if (!empty($shouldRecordFailure) && isset($conn) && $conn instanceof mysqli && $attemptKey !== '') {
