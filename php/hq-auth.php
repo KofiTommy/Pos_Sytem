@@ -10,7 +10,29 @@ const HQ_SESSION_UA_HASH_KEY = 'hq_admin_ua_hash';
 const HQ_DEFAULT_SESSION_IDLE_SECONDS = 1800;
 
 function hq_env(string $key): string {
-    return trim((string)getenv($key));
+    $fromGetenv = getenv($key);
+    if ($fromGetenv !== false) {
+        $value = trim((string)$fromGetenv);
+        if ($value !== '') {
+            return $value;
+        }
+    }
+
+    if (isset($_SERVER[$key])) {
+        $value = trim((string)$_SERVER[$key]);
+        if ($value !== '') {
+            return $value;
+        }
+    }
+
+    if (isset($_ENV[$key])) {
+        $value = trim((string)$_ENV[$key]);
+        if ($value !== '') {
+            return $value;
+        }
+    }
+
+    return '';
 }
 
 function hq_request_host(): string {
@@ -306,7 +328,7 @@ function hq_is_same_origin_write_request(): bool {
 function hq_require_page(string $redirectUrl = 'login.php'): void {
     if (!hq_is_enabled()) {
         http_response_code(503);
-        echo 'HQ dashboard is not configured. Set HQ_ADMIN_USERNAME and HQ_ADMIN_PASSWORD_HASH (or HQ_ADMIN_PASSWORD).';
+        echo 'HQ dashboard is not configured. Set HQ_ADMIN_USERNAME and HQ_ADMIN_PASSWORD_HASH.';
         exit();
     }
 

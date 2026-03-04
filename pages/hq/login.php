@@ -41,7 +41,7 @@ $hqIpAllowed = hq_ip_is_allowed();
 
             <?php if (!$hqEnabled): ?>
                 <div class="alert alert-warning mb-0">
-                    HQ access is not configured. Set `HQ_ADMIN_USERNAME` and `HQ_ADMIN_PASSWORD_HASH` (or `HQ_ADMIN_PASSWORD`) in environment variables.
+                    HQ access is not configured. Set `HQ_ADMIN_USERNAME` and `HQ_ADMIN_PASSWORD_HASH` in environment variables.
                 </div>
             <?php elseif (!$hqIpAllowed): ?>
                 <div class="alert alert-danger mb-0">
