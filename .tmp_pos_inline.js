@@ -1,252 +1,4 @@
-<?php
-include '../../php/admin-auth.php';
-require_roles_page(['owner', 'sales'], '../login.html');
-$currentRole = current_user_role();
-$isOwner = $currentRole === 'owner';
-$currentBusinessCode = current_business_code();
-$scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-$host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-$scriptName = str_replace('\\', '/', (string)($_SERVER['SCRIPT_NAME'] ?? ''));
-$appBasePath = preg_replace('#/pages/admin/[^/]+$#', '', $scriptName);
-if (!is_string($appBasePath) || $appBasePath === '') {
-    $appBasePath = '/possystem';
-}
-$appBaseUrl = $scheme . '://' . $host . $appBasePath;
-$tenantStorefrontUrl = $appBaseUrl . '/index.html'
-    . ($currentBusinessCode !== '' ? ('?tenant=' . rawurlencode($currentBusinessCode)) : '');
-?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>POS Terminal - Mother Care</title>
-    <link rel="icon" type="image/svg+xml" href="../../assets/images/ceditill-favicon.svg">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="../../css/style.css">
-    <style>
-        .pos-mobile-nav .offcanvas-header {
-            border-bottom: 1px solid #e9eff5;
-        }
-
-        .pos-mobile-nav .list-group-item {
-            border-radius: 10px;
-            margin-bottom: 6px;
-            border: 1px solid #e9eff5;
-        }
-
-        .pos-mobile-summary {
-            background: #f5f9ff;
-            border: 1px solid #dbe8f4;
-            border-radius: 10px;
-            padding: 0.7rem;
-        }
-
-        .pos-cart-actions .btn {
-            min-width: 38px;
-        }
-
-        @media (max-width: 576px) {
-            #checkoutBtn,
-            #clearBtn,
-            #searchBtn,
-            #refreshBtn {
-                min-height: 44px;
-            }
-
-            .pos-cart-actions .btn {
-                min-width: 42px;
-                min-height: 38px;
-            }
-        }
-    </style>
-</head>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom sticky-top">
-        <div class="container">
-            <a class="navbar-brand fw-bold" href="<?php echo $isOwner ? 'dashboard.php' : 'pos.php'; ?>"><i class="fas fa-cash-register"></i> POS Terminal</a>
-            <button class="btn btn-outline-secondary btn-sm ms-auto position-relative d-lg-none" type="button"
-                data-bs-toggle="offcanvas" data-bs-target="#posMobileNav" aria-controls="posMobileNav">
-                <i class="fas fa-bars"></i> Menu
-                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none" data-notif-total>0</span>
-            </button>
-            <div class="ms-auto d-none d-lg-flex gap-2 admin-actions">
-                <?php if ($isOwner): ?>
-                <a href="dashboard.php" class="btn btn-outline-info btn-sm">Dashboard</a>
-                <a href="manage-products.php" class="btn btn-outline-success btn-sm">Manage Products</a>
-                <a href="business-settings.php" class="btn btn-outline-primary btn-sm">Business Info</a>
-                <a href="payment-settings.php" class="btn btn-outline-secondary btn-sm">Payment Settings</a>
-                <a href="users.php" class="btn btn-outline-warning btn-sm">Manage Staff</a>
-                <a href="cash-closures.php" class="btn btn-outline-dark btn-sm">Cash Closures</a>
-                <a href="audit-trail.php" class="btn btn-outline-dark btn-sm">Audit Trail</a>
-                <a href="operations-alerts.php" class="btn btn-outline-danger btn-sm">Ops Alerts</a>
-                <?php endif; ?>
-                <a href="sales.php" class="btn btn-outline-primary btn-sm">Sales History</a>
-                <a href="<?php echo htmlspecialchars($tenantStorefrontUrl); ?>" class="btn btn-outline-dark btn-sm">View Storefront</a>
-                <span class="badge bg-<?php echo $isOwner ? 'warning text-dark' : 'primary'; ?> align-self-center text-uppercase"><?php echo htmlspecialchars($currentRole); ?></span>
-                <div class="dropdown">
-                    <button class="btn btn-outline-secondary btn-sm position-relative" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Notifications">
-                        <i class="fas fa-bell"></i>
-                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none" data-notif-total>0</span>
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end">
-                        <li class="dropdown-header">Notifications</li>
-                        <li>
-                            <a class="dropdown-item d-flex justify-content-between align-items-center" href="sales.php">
-                                Pending Orders
-                                <span class="badge bg-warning text-dark" data-pending-orders>0</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item d-flex justify-content-between align-items-center" href="dashboard.php#clientMessagesSection">
-                                New Messages
-                                <span class="badge bg-primary" data-new-messages>0</span>
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-                <a href="../../php/logout.php" class="btn btn-danger btn-sm">Logout</a>
-            </div>
-        </div>
-    </nav>
-
-    <div class="offcanvas offcanvas-end pos-mobile-nav" tabindex="-1" id="posMobileNav" aria-labelledby="posMobileNavLabel">
-        <div class="offcanvas-header">
-            <h5 class="offcanvas-title" id="posMobileNavLabel"><i class="fas fa-cash-register me-1"></i> POS Menu</h5>
-            <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
-        </div>
-        <div class="offcanvas-body">
-            <div class="pos-mobile-summary mb-3">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <span class="small fw-semibold">Pending Orders</span>
-                    <span class="badge bg-warning text-dark" data-pending-orders>0</span>
-                </div>
-                <div class="d-flex justify-content-between align-items-center">
-                    <span class="small fw-semibold">New Messages</span>
-                    <span class="badge bg-primary" data-new-messages>0</span>
-                </div>
-            </div>
-
-            <p class="small text-muted mb-2">Quick Actions</p>
-            <div class="list-group mb-3">
-                <?php if ($isOwner): ?>
-                <a href="dashboard.php" class="list-group-item list-group-item-action">
-                    <i class="fas fa-chart-pie me-2"></i>Dashboard
-                </a>
-                <?php endif; ?>
-                <a href="sales.php" class="list-group-item list-group-item-action">
-                    <i class="fas fa-chart-line me-2"></i>Sales History
-                </a>
-                <a href="<?php echo htmlspecialchars($tenantStorefrontUrl); ?>" class="list-group-item list-group-item-action">
-                    <i class="fas fa-store me-2"></i>View Storefront
-                </a>
-            </div>
-
-            <?php if ($isOwner): ?>
-            <details class="mb-3">
-                <summary class="btn btn-outline-secondary btn-sm w-100 text-start">
-                    <i class="fas fa-sliders me-2"></i>Owner Tools
-                </summary>
-                <div class="list-group mt-2">
-                    <a href="manage-products.php" class="list-group-item list-group-item-action"><i class="fas fa-boxes me-2"></i>Manage Products</a>
-                    <a href="business-settings.php" class="list-group-item list-group-item-action"><i class="fas fa-briefcase me-2"></i>Business Info</a>
-                    <a href="payment-settings.php" class="list-group-item list-group-item-action"><i class="fas fa-shield-alt me-2"></i>Payment Settings</a>
-                    <a href="users.php" class="list-group-item list-group-item-action"><i class="fas fa-users-cog me-2"></i>Manage Staff</a>
-                    <a href="cash-closures.php" class="list-group-item list-group-item-action"><i class="fas fa-cash-register me-2"></i>Cash Closures</a>
-                    <a href="audit-trail.php" class="list-group-item list-group-item-action"><i class="fas fa-clipboard-list me-2"></i>Audit Trail</a>
-                    <a href="operations-alerts.php" class="list-group-item list-group-item-action"><i class="fas fa-triangle-exclamation me-2"></i>Ops Alerts</a>
-                </div>
-            </details>
-            <?php endif; ?>
-
-            <div class="d-grid">
-                <a href="../../php/logout.php" class="btn btn-danger"><i class="fas fa-right-from-bracket me-1"></i> Logout</a>
-            </div>
-        </div>
-    </div>
-
-    <main class="container py-4">
-        <div class="alert alert-info d-flex flex-column flex-md-row gap-2 justify-content-between align-items-md-center">
-            <div class="small">
-                <strong>Business code:</strong> <code><?php echo htmlspecialchars($currentBusinessCode); ?></code>
-            </div>
-            <div class="input-group input-group-sm" style="max-width: 620px;">
-                <input id="shopShareUrl" class="form-control" readonly value="<?php echo htmlspecialchars($tenantStorefrontUrl); ?>">
-                <button id="copyShopShareUrl" class="btn btn-outline-primary" type="button">Copy Shop URL</button>
-            </div>
-        </div>
-
-        <div class="row g-4">
-            <div class="col-lg-8">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-body">
-                        <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
-                            <input id="productSearch" class="form-control pos-search-input" placeholder="Search products...">
-                            <button id="searchBtn" class="btn btn-primary"><i class="fas fa-search"></i> Search</button>
-                            <button id="refreshBtn" class="btn btn-outline-secondary">Refresh</button>
-                        </div>
-                        <div id="productsGrid" class="row g-3"></div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-lg-4">
-                <div class="card border-0 shadow-sm sticky-top mobile-sticky-reset" style="top: 90px;">
-                    <div class="card-header bg-light">
-                        <h5 class="mb-0">Current Sale</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="mb-2">
-                            <label class="form-label">Customer Name</label>
-                            <input id="customerName" class="form-control" value="Walk-in Customer">
-                        </div>
-                        <div class="mb-2">
-                            <label class="form-label">Payment Method</label>
-                            <select id="paymentMethod" class="form-select">
-                                <option value="cash">Cash</option>
-                                <option value="card">Card</option>
-                                <option value="mobile">Mobile Money</option>
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Cash Received (optional)</label>
-                            <input id="cashReceived" class="form-control" type="number" min="0" step="0.01" value="0">
-                        </div>
-                        <div class="row g-2 mb-3">
-                            <div class="col-6">
-                                <label class="form-label">Tax Rate (%)</label>
-                                <input id="taxRate" class="form-control" type="number" min="0" max="100" step="0.01" value="0">
-                            </div>
-                            <div class="col-6">
-                                <label class="form-label">Discount</label>
-                                <input id="discountAmount" class="form-control" type="number" min="0" step="0.01" value="0">
-                            </div>
-                        </div>
-
-                        <div id="cartItems" class="mb-3 small"></div>
-                        <hr>
-                        <div class="d-flex justify-content-between"><span>Subtotal</span><strong id="subtotal">GHS 0.00</strong></div>
-                        <div class="d-flex justify-content-between"><span>Discount</span><strong id="discount">GHS 0.00</strong></div>
-                        <div class="d-flex justify-content-between"><span id="taxLabel">Tax (0%)</span><strong id="tax">GHS 0.00</strong></div>
-                        <div class="d-flex justify-content-between mb-2"><span>Total</span><strong id="total">GHS 0.00</strong></div>
-                        <div class="d-flex justify-content-between mb-3"><span>Change</span><strong id="changeDue">GHS 0.00</strong></div>
-                        <button id="checkoutBtn" class="btn btn-success w-100 mb-2">
-                            <i class="fas fa-check-circle"></i> Complete Sale
-                        </button>
-                        <button id="clearBtn" class="btn btn-outline-danger w-100">Clear Cart</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div id="saleResult" class="mt-4"></div>
-    </main>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="../../js/business-info.js"></script>
-    <script src="../../js/admin-notifications.js"></script>
-    <script>
+﻿
         const cart = new Map();
         let products = [];
         let lastReceiptData = null;
@@ -277,30 +29,6 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
 
         function sanitizeFilename(value) {
             return String(value || '').replace(/[^a-zA-Z0-9._-]/g, '');
-        }
-
-        function elementMatches(el, selector) {
-            if (!el) return false;
-            const matcher = el.matches || el.msMatchesSelector || el.webkitMatchesSelector;
-            if (!matcher) return false;
-            return matcher.call(el, selector);
-        }
-
-        function closestFromTarget(target, selector) {
-            let node = null;
-            if (target && target.nodeType === 1) {
-                node = target;
-            } else if (target && target.parentElement) {
-                node = target.parentElement;
-            }
-
-            while (node) {
-                if (elementMatches(node, selector)) {
-                    return node;
-                }
-                node = node.parentElement;
-            }
-            return null;
         }
 
         function getBusinessInfo() {
@@ -455,7 +183,7 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
         }
 
         document.getElementById('productsGrid').addEventListener('click', (event) => {
-            const addBtn = closestFromTarget(event.target, 'button[data-pos-add]');
+            const addBtn = event.target.closest('button[data-pos-add]');
             if (addBtn) {
                 event.preventDefault();
                 const productId = Number(addBtn.getAttribute('data-pos-add'));
@@ -464,7 +192,7 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
                 }
                 return;
             }
-            const card = closestFromTarget(event.target, '.product-card[data-product-id]');
+            const card = event.target.closest('.product-card[data-product-id]');
             if (!card) return;
             const productId = Number(card.getAttribute('data-product-id'));
             if (!Number.isFinite(productId)) return;
@@ -472,7 +200,7 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
         });
 
         document.getElementById('cartItems').addEventListener('click', (event) => {
-            const button = closestFromTarget(event.target, 'button[data-cart-action]');
+            const button = event.target.closest('button[data-cart-action]');
             if (!button) return;
 
             const action = String(button.getAttribute('data-cart-action') || '');
@@ -494,7 +222,7 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
 
         document.getElementById('productsGrid').addEventListener('keydown', (event) => {
             if (event.key !== 'Enter' && event.key !== ' ') return;
-            const card = closestFromTarget(event.target, '.product-card[data-product-id]');
+            const card = event.target.closest('.product-card[data-product-id]');
             if (!card) return;
             event.preventDefault();
             const productId = Number(card.getAttribute('data-product-id'));
@@ -750,27 +478,10 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
             }
             const offcanvas = bootstrap.Offcanvas.getOrCreateInstance(offcanvasEl);
             offcanvasEl.querySelectorAll('a[href]').forEach((link) => {
-                link.addEventListener('click', (event) => {
-                    const href = String(link.getAttribute('href') || '').trim();
-                    if (!href || href === '#') {
-                        return;
-                    }
-                    event.preventDefault();
-                    offcanvas.hide();
-                    setTimeout(() => {
-                        window.location.href = href;
-                    }, 180);
-                });
+                link.addEventListener('click', () => offcanvas.hide());
             });
         }
 
         setupPosMobileNav();
         loadProducts().then(renderCart).catch((error) => alert(error.message));
-    </script>
-</body>
-</html>
-
-
-
-
-
+    

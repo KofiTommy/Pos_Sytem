@@ -2,6 +2,15 @@
 include '../../php/admin-auth.php';
 require_roles_page(['owner'], '../login.html');
 $currentRole = current_user_role();
+$currentBusinessCode = current_business_code();
+$scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+$host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+$scriptName = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '');
+$appBasePath = preg_replace('#/pages/admin/.*$#', '', $scriptName);
+$appBasePath = rtrim($appBasePath, '/');
+$appBaseUrl = $scheme . '://' . $host . $appBasePath;
+$tenantStorefrontUrl = $appBaseUrl . '/index.html'
+    . ($currentBusinessCode !== '' ? ('?tenant=' . rawurlencode($currentBusinessCode)) : '');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -28,7 +37,7 @@ $currentRole = current_user_role();
                 <a href="audit-trail.php" class="btn btn-outline-dark btn-sm">Audit Trail</a>
                 <a href="operations-alerts.php" class="btn btn-outline-danger btn-sm">Ops Alerts</a>
                 <a href="sales.php" class="btn btn-outline-secondary btn-sm">Sales History</a>
-                <a href="../products.html" class="btn btn-outline-dark btn-sm">View Storefront</a>
+                <a href="<?php echo htmlspecialchars($tenantStorefrontUrl); ?>" class="btn btn-outline-dark btn-sm">View Storefront</a>
                 <span class="badge bg-warning text-dark align-self-center text-uppercase"><?php echo htmlspecialchars($currentRole); ?></span>
                 <div class="dropdown">
                     <button class="btn btn-outline-secondary btn-sm position-relative" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Notifications">

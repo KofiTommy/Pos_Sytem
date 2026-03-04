@@ -37,6 +37,12 @@ try {
     if (!is_array($body)) {
         $body = [];
     }
+    if (strtoupper($method) === 'POST') {
+        $override = strtoupper(trim((string)($body['_method'] ?? '')));
+        if (in_array($override, ['PUT', 'DELETE'], true)) {
+            $method = $override;
+        }
+    }
 
     if ($method === 'GET') {
         $stmt = $conn->prepare(

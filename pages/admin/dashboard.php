@@ -11,9 +11,8 @@ if (!is_string($appBasePath) || $appBasePath === '') {
     $appBasePath = '/possystem';
 }
 $appBaseUrl = $scheme . '://' . $host . $appBasePath;
-$tenantStorefrontUrl = $currentBusinessCode !== ''
-    ? ($appBaseUrl . '/b/' . rawurlencode($currentBusinessCode) . '/')
-    : ($appBaseUrl . '/index.html');
+$tenantStorefrontUrl = $appBaseUrl . '/index.html'
+    . ($currentBusinessCode !== '' ? ('?tenant=' . rawurlencode($currentBusinessCode)) : '');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -1076,12 +1075,20 @@ $tenantStorefrontUrl = $currentBusinessCode !== ''
                         event.preventDefault();
                         offcanvas.hide();
                         setTimeout(() => {
-                            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            try {
+                                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            } catch (error) {
+                                target.scrollIntoView();
+                            }
                         }, 250);
                         return;
                     }
 
+                    event.preventDefault();
                     offcanvas.hide();
+                    setTimeout(() => {
+                        window.location.href = href;
+                    }, 180);
                 });
             });
         }

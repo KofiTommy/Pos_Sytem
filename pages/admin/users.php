@@ -2,6 +2,15 @@
 include '../../php/admin-auth.php';
 require_roles_page(['owner'], '../login.html');
 $currentRole = current_user_role();
+$currentBusinessCode = current_business_code();
+$scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+$host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+$scriptName = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '');
+$appBasePath = preg_replace('#/pages/admin/.*$#', '', $scriptName);
+$appBasePath = rtrim($appBasePath, '/');
+$appBaseUrl = $scheme . '://' . $host . $appBasePath;
+$tenantStorefrontUrl = $appBaseUrl . '/index.html'
+    . ($currentBusinessCode !== '' ? ('?tenant=' . rawurlencode($currentBusinessCode)) : '');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -28,7 +37,7 @@ $currentRole = current_user_role();
                 <a href="audit-trail.php" class="btn btn-outline-dark btn-sm">Audit Trail</a>
                 <a href="operations-alerts.php" class="btn btn-outline-danger btn-sm">Ops Alerts</a>
                 <a href="sales.php" class="btn btn-outline-secondary btn-sm">Sales History</a>
-                <a href="../products.html" class="btn btn-outline-dark btn-sm">View Storefront</a>
+                <a href="<?php echo htmlspecialchars($tenantStorefrontUrl); ?>" class="btn btn-outline-dark btn-sm">View Storefront</a>
                 <span class="badge bg-warning text-dark align-self-center text-uppercase"><?php echo htmlspecialchars($currentRole); ?></span>
                 <a href="../../php/logout.php" class="btn btn-danger btn-sm">Logout</a>
             </div>
@@ -254,9 +263,12 @@ $currentRole = current_user_role();
 
             try {
                 const response = await fetch('../../php/manage-users.php', {
-                    method: 'DELETE',
+                    method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_id: Number(userId) })
+                    body: JSON.stringify({
+                        _method: 'DELETE',
+                        user_id: Number(userId)
+                    })
                 });
                 const data = await response.json();
                 if (!data.success) {
@@ -289,9 +301,9 @@ $currentRole = current_user_role();
 
             try {
                 const response = await fetch('../../php/manage-users.php', {
-                    method: 'PUT',
+                    method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify(Object.assign({ _method: 'PUT' }, payload))
                 });
                 const data = await response.json();
                 if (!data.success) {
@@ -322,9 +334,9 @@ $currentRole = current_user_role();
 
             try {
                 const response = await fetch('../../php/manage-users.php', {
-                    method: 'PUT',
+                    method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify(Object.assign({ _method: 'PUT' }, payload))
                 });
                 const data = await response.json();
                 if (!data.success) {
