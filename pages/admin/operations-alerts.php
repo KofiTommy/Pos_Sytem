@@ -162,6 +162,8 @@ $currentRole = current_user_role();
         </div>
     </main>
 
+    <script src="../../js/api-client.js"></script>
+    <script src="../../js/broadcast-notices.js?v=20260304-1"></script>
     <script>
         function escapeHtml(value) {
             return String(value || '')

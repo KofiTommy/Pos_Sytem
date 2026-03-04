@@ -79,6 +79,7 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
                 <a href="cash-closures.php" class="btn btn-outline-dark btn-sm">Cash Closures</a>
                 <a href="audit-trail.php" class="btn btn-outline-dark btn-sm">Audit Trail</a>
                 <a href="operations-alerts.php" class="btn btn-outline-danger btn-sm">Ops Alerts</a>
+                <a href="support.php" class="btn btn-outline-info btn-sm">CediTill Support</a>
                 <?php endif; ?>
                 <a href="sales.php" class="btn btn-outline-primary btn-sm">Sales History</a>
                 <a href="<?php echo htmlspecialchars($tenantStorefrontUrl); ?>" class="btn btn-outline-dark btn-sm">View Storefront</a>
@@ -154,6 +155,7 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
                     <a href="cash-closures.php" class="list-group-item list-group-item-action"><i class="fas fa-cash-register me-2"></i>Cash Closures</a>
                     <a href="audit-trail.php" class="list-group-item list-group-item-action"><i class="fas fa-clipboard-list me-2"></i>Audit Trail</a>
                     <a href="operations-alerts.php" class="list-group-item list-group-item-action"><i class="fas fa-triangle-exclamation me-2"></i>Ops Alerts</a>
+                    <a href="support.php" class="list-group-item list-group-item-action"><i class="fas fa-life-ring me-2"></i>CediTill Support</a>
                 </div>
             </details>
             <?php endif; ?>
@@ -244,6 +246,8 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="../../js/business-info.js"></script>
     <script src="../../js/admin-notifications.js"></script>
+    <script src="../../js/api-client.js"></script>
+    <script src="../../js/broadcast-notices.js?v=20260304-1"></script>
     <script>
         const cart = new Map();
         let products = [];

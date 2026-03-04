@@ -86,6 +86,11 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
                                 <input type="text" id="contactNumber" class="form-control" maxlength="40" required>
                             </div>
                             <div class="mb-3">
+                                <label for="businessLocation" class="form-label">Business Location</label>
+                                <input type="text" id="businessLocation" class="form-control" maxlength="220" placeholder="e.g. 123 Main St, Accra">
+                                <div class="form-text">Shown on storefront contact page.</div>
+                            </div>
+                            <div class="mb-3">
                                 <label for="heroTagline" class="form-label">Welcome Tagline</label>
                                 <textarea id="heroTagline" class="form-control" rows="2" maxlength="320"></textarea>
                                 <div class="form-text">Shown under "Welcome to" on the home page.</div>
@@ -138,6 +143,7 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
                             <h4 class="mb-1" id="namePreview">CediTill</h4>
                             <p class="mb-1 text-muted" id="emailPreview">info@ceditill.com</p>
                             <p class="mb-0 text-muted" id="phonePreview">+233 000 000 000</p>
+                            <p class="mb-0 text-muted small" id="locationPreview">123 Mother Care Avenue, City Center</p>
                             <p class="mt-2 mb-1 small text-muted" id="heroPreview">Universal POS tools to manage sales, inventory, and customers with confidence.</p>
                             <p class="mb-0 small text-muted" id="footerPreview">CediTill helps businesses run faster checkout, smarter stock control, and clear daily sales insights.</p>
                             <span class="badge bg-secondary mt-2" id="palettePreview">Palette: default</span>
@@ -181,6 +187,8 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="../../js/admin-notifications.js"></script>
+    <script src="../../js/api-client.js"></script>
+    <script src="../../js/broadcast-notices.js?v=20260304-1"></script>
     <script>
         let currentLogoFilename = '';
         let currentBusinessCode = '';
@@ -292,6 +300,7 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
             const name = document.getElementById('businessName').value.trim() || 'Business name';
             const email = document.getElementById('businessEmail').value.trim() || 'email@example.com';
             const phone = document.getElementById('contactNumber').value.trim() || 'Phone number';
+            const location = document.getElementById('businessLocation').value.trim() || '123 Mother Care Avenue, City Center';
             const heroTagline = document.getElementById('heroTagline').value.trim() || 'Universal POS tools to manage sales, inventory, and customers with confidence.';
             const footerNote = document.getElementById('footerNote').value.trim() || 'CediTill helps businesses run faster checkout, smarter stock control, and clear daily sales insights.';
             const palette = document.getElementById('themePalette').value || 'default';
@@ -301,6 +310,7 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
             document.getElementById('namePreview').textContent = name;
             document.getElementById('emailPreview').textContent = email;
             document.getElementById('phonePreview').textContent = phone;
+            document.getElementById('locationPreview').textContent = location;
             document.getElementById('heroPreview').textContent = heroTagline;
             document.getElementById('footerPreview').textContent = footerNote;
             document.getElementById('palettePreview').textContent = 'Palette: ' + palette;
@@ -340,6 +350,7 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
             document.getElementById('businessName').value = data.settings.business_name || '';
             document.getElementById('businessEmail').value = data.settings.business_email || '';
             document.getElementById('contactNumber').value = data.settings.contact_number || '';
+            document.getElementById('businessLocation').value = data.settings.business_location || '';
             document.getElementById('heroTagline').value = data.settings.hero_tagline || '';
             document.getElementById('footerNote').value = data.settings.footer_note || '';
             document.getElementById('themePalette').value = data.settings.theme_palette || 'default';
@@ -363,6 +374,7 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
                 payload.append('business_name', document.getElementById('businessName').value.trim());
                 payload.append('business_email', document.getElementById('businessEmail').value.trim());
                 payload.append('contact_number', document.getElementById('contactNumber').value.trim());
+                payload.append('business_location', document.getElementById('businessLocation').value.trim());
                 payload.append('hero_tagline', document.getElementById('heroTagline').value.trim());
                 payload.append('footer_note', document.getElementById('footerNote').value.trim());
                 payload.append('theme_palette', document.getElementById('themePalette').value);
@@ -423,6 +435,7 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
         document.getElementById('businessName').addEventListener('input', renderPreview);
         document.getElementById('businessEmail').addEventListener('input', renderPreview);
         document.getElementById('contactNumber').addEventListener('input', renderPreview);
+        document.getElementById('businessLocation').addEventListener('input', renderPreview);
         document.getElementById('heroTagline').addEventListener('input', renderPreview);
         document.getElementById('footerNote').addEventListener('input', renderPreview);
         document.getElementById('themePalette').addEventListener('change', renderPreview);

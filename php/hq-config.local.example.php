@@ -7,7 +7,9 @@
 return [
     'HQ_ADMIN_USERNAME' => 'hqadmin',
     'HQ_ADMIN_PASSWORD_HASH' => '$2y$10$replace_with_real_bcrypt_hash',
-    'HQ_ACTIONS_ENABLED' => 'false',
+    'HQ_ACTIONS_ENABLED' => 'true',
+    'HQ_BROADCAST_FROM_EMAIL' => 'info@ceditill.com',
+    'HQ_BROADCAST_FROM_NAME' => 'CediTill HQ',
     // Optional hardening:
     // 'HQ_ALLOWED_IPS' => '203.0.113.10/32',
     // 'HQ_SESSION_IDLE_SECONDS' => '900',

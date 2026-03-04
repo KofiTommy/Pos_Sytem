@@ -182,6 +182,8 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="../../js/business-info.js"></script>
     <script src="../../js/admin-notifications.js"></script>
+    <script src="../../js/api-client.js"></script>
+    <script src="../../js/broadcast-notices.js?v=20260304-1"></script>
     <script>
         let editSaleModal;
         const canDeleteSales = <?php echo $isOwner ? 'true' : 'false'; ?>;

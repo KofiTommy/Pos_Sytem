@@ -4,6 +4,7 @@
         business_name: 'CediTill',
         business_email: 'info@ceditill.com',
         contact_number: '+233 245 067 195',
+        business_location: '123 Mother Care Avenue, City Center',
         logo_filename: '',
         theme_palette: 'default',
         hero_tagline: 'Universal POS tools to manage sales, inventory, and customers with confidence.',
@@ -196,6 +197,7 @@
         safeInfo.theme_palette = String(safeInfo.theme_palette || 'default').toLowerCase();
         safeInfo.hero_tagline = String(safeInfo.hero_tagline || DEFAULT_INFO.hero_tagline).trim() || DEFAULT_INFO.hero_tagline;
         safeInfo.footer_note = String(safeInfo.footer_note || DEFAULT_INFO.footer_note).trim() || DEFAULT_INFO.footer_note;
+        safeInfo.business_location = String(safeInfo.business_location || DEFAULT_INFO.business_location).trim() || DEFAULT_INFO.business_location;
         applyThemePalette(safeInfo.theme_palette);
 
         document.querySelectorAll('[data-business-name]').forEach((el) => {
@@ -212,6 +214,10 @@
 
         document.querySelectorAll('[data-business-phone]').forEach((el) => {
             el.textContent = safeInfo.contact_number;
+        });
+
+        document.querySelectorAll('[data-business-location]').forEach((el) => {
+            el.textContent = safeInfo.business_location;
         });
 
         document.querySelectorAll('[data-business-hero-tagline]').forEach((el) => {

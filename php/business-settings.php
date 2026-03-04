@@ -11,6 +11,7 @@ const DEFAULT_CONTACT_NUMBER = '+233 245 067 195';
 const DEFAULT_THEME_PALETTE = 'default';
 const DEFAULT_HERO_TAGLINE = 'Universal POS tools to manage sales, inventory, and customers with confidence.';
 const DEFAULT_FOOTER_NOTE = 'CediTill helps businesses run faster checkout, smarter stock control, and clear daily sales insights.';
+const DEFAULT_BUSINESS_LOCATION = '123 Mother Care Avenue, City Center';
 
 function allowed_theme_palettes() {
     return ['default', 'ocean', 'sunset', 'forest', 'mono'];
@@ -45,6 +46,7 @@ function default_settings_for_business(array $business = []) {
         'theme_palette' => DEFAULT_THEME_PALETTE,
         'hero_tagline' => DEFAULT_HERO_TAGLINE,
         'footer_note' => DEFAULT_FOOTER_NOTE,
+        'business_location' => DEFAULT_BUSINESS_LOCATION,
         'updated_at' => null
     ];
 }
@@ -118,7 +120,7 @@ function handle_logo_upload($fieldName) {
 
 function load_settings(mysqli $conn, int $businessId, array $business = []) {
     $stmt = $conn->prepare(
-        "SELECT business_name, business_email, contact_number, logo_filename, theme_palette, hero_tagline, footer_note, updated_at
+        "SELECT business_name, business_email, contact_number, logo_filename, theme_palette, hero_tagline, footer_note, business_location, updated_at
          FROM business_settings
          WHERE business_id = ?
          LIMIT 1"
@@ -141,6 +143,7 @@ function load_settings(mysqli $conn, int $businessId, array $business = []) {
         'theme_palette' => normalize_theme_palette($row['theme_palette'] ?? $defaults['theme_palette']),
         'hero_tagline' => trim((string)($row['hero_tagline'] ?? $defaults['hero_tagline'])) ?: $defaults['hero_tagline'],
         'footer_note' => trim((string)($row['footer_note'] ?? $defaults['footer_note'])) ?: $defaults['footer_note'],
+        'business_location' => trim((string)($row['business_location'] ?? $defaults['business_location'])) ?: $defaults['business_location'],
         'updated_at' => $row['updated_at'] ?? null
     ];
 }
@@ -187,12 +190,10 @@ function resolve_business_for_request(mysqli $conn, string $method): array {
 try {
     ensure_multitenant_schema($conn);
 
-    $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
-    if ($method === 'POST' && isset($_POST['_method'])) {
-        $override = strtoupper(trim($_POST['_method']));
-        if (in_array($override, ['PUT', 'DELETE'], true)) {
-            $method = $override;
-        }
+    if (function_exists('resolve_admin_api_method')) {
+        $method = resolve_admin_api_method();
+    } else {
+        $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
     }
 
     $business = resolve_business_for_request($conn, $method);
@@ -247,6 +248,7 @@ try {
         $themePalette = normalize_theme_palette($data['theme_palette'] ?? DEFAULT_THEME_PALETTE);
         $heroTagline = trim((string)($data['hero_tagline'] ?? DEFAULT_HERO_TAGLINE));
         $footerNote = trim((string)($data['footer_note'] ?? DEFAULT_FOOTER_NOTE));
+        $businessLocation = trim((string)($data['business_location'] ?? DEFAULT_BUSINESS_LOCATION));
 
         if ($businessName === '') {
             respond(false, 'Business name is required');
@@ -278,6 +280,12 @@ try {
         if (strlen($footerNote) > 320) {
             respond(false, 'Footer note is too long');
         }
+        if ($businessLocation === '') {
+            $businessLocation = DEFAULT_BUSINESS_LOCATION;
+        }
+        if (strlen($businessLocation) > 220) {
+            respond(false, 'Business location is too long');
+        }
 
         $logoFilename = $removeLogo ? '' : ($existing['logo_filename'] ?? '');
         $uploadedLogo = handle_logo_upload('logo_file');
@@ -287,10 +295,10 @@ try {
 
         $stmt = $conn->prepare(
             "UPDATE business_settings
-             SET business_name = ?, business_email = ?, contact_number = ?, logo_filename = ?, theme_palette = ?, hero_tagline = ?, footer_note = ?
+             SET business_name = ?, business_email = ?, contact_number = ?, logo_filename = ?, theme_palette = ?, hero_tagline = ?, footer_note = ?, business_location = ?
              WHERE business_id = ?"
         );
-        $stmt->bind_param('sssssssi', $businessName, $businessEmail, $contactNumber, $logoFilename, $themePalette, $heroTagline, $footerNote, $businessId);
+        $stmt->bind_param('ssssssssi', $businessName, $businessEmail, $contactNumber, $logoFilename, $themePalette, $heroTagline, $footerNote, $businessLocation, $businessId);
         $stmt->execute();
         $stmt->close();
 
@@ -330,14 +338,15 @@ try {
         $palette = DEFAULT_THEME_PALETTE;
         $heroTagline = $fallback['hero_tagline'];
         $footerNote = $fallback['footer_note'];
+        $businessLocation = $fallback['business_location'];
 
         $stmt = $conn->prepare(
             "UPDATE business_settings
-             SET business_name = ?, business_email = ?, contact_number = ?, logo_filename = ?, theme_palette = ?, hero_tagline = ?, footer_note = ?
+             SET business_name = ?, business_email = ?, contact_number = ?, logo_filename = ?, theme_palette = ?, hero_tagline = ?, footer_note = ?, business_location = ?
              WHERE business_id = ?"
         );
         $stmt->bind_param(
-            'sssssssi',
+            'ssssssssi',
             $fallback['business_name'],
             $fallback['business_email'],
             $fallback['contact_number'],
@@ -345,6 +354,7 @@ try {
             $palette,
             $heroTagline,
             $footerNote,
+            $businessLocation,
             $businessId
         );
         $stmt->execute();

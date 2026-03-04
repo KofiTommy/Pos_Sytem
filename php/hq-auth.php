@@ -1,6 +1,7 @@
 <?php
 include_once __DIR__ . '/session-bootstrap.php';
 secure_session_start();
+include_once __DIR__ . '/csrf.php';
 
 const HQ_SESSION_AUTH_KEY = 'hq_admin_authenticated';
 const HQ_SESSION_USER_KEY = 'hq_admin_username';
@@ -333,6 +334,8 @@ function hq_mark_authenticated(string $username): void {
     $_SESSION[HQ_SESSION_LOGIN_AT_KEY] = $now;
     $_SESSION[HQ_SESSION_LAST_SEEN_KEY] = $now;
     $_SESSION[HQ_SESSION_UA_HASH_KEY] = hq_user_agent_hash();
+    csrf_rotate_token();
+    csrf_issue_cookie();
 }
 
 function hq_logout(): void {
@@ -343,6 +346,8 @@ function hq_logout(): void {
         $_SESSION[HQ_SESSION_LAST_SEEN_KEY],
         $_SESSION[HQ_SESSION_UA_HASH_KEY]
     );
+    csrf_rotate_token();
+    csrf_clear_cookie();
 }
 
 function hq_is_same_origin_write_request(): bool {
@@ -359,6 +364,22 @@ function hq_is_same_origin_write_request(): bool {
     $crossSiteFetch = $fetchSite !== '' && !in_array($fetchSite, ['same-origin', 'same-site', 'none'], true);
 
     return !$crossSiteFetch && $sameOrigin;
+}
+
+function hq_resolve_api_method(): string {
+    $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
+    if ($method !== 'POST') {
+        return $method;
+    }
+
+    $overrideRaw = $_SERVER['HTTP_X_HTTP_METHOD_OVERRIDE'] ?? ($_POST['_method'] ?? '');
+    $override = strtoupper(trim((string)$overrideRaw));
+    if (!in_array($override, ['PUT', 'DELETE', 'PATCH'], true)) {
+        return $method;
+    }
+
+    $_SERVER['REQUEST_METHOD'] = $override;
+    return $override;
 }
 
 function hq_require_page(string $redirectUrl = 'login.php'): void {
@@ -378,6 +399,8 @@ function hq_require_page(string $redirectUrl = 'login.php'): void {
         header('Location: ' . $redirectUrl);
         exit();
     }
+
+    csrf_issue_cookie();
 }
 
 function hq_require_api(): void {
@@ -410,7 +433,8 @@ function hq_require_api(): void {
         exit();
     }
 
-    $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
+    $method = hq_resolve_api_method();
+    csrf_issue_cookie();
     if (in_array($method, ['GET', 'HEAD', 'OPTIONS'], true)) {
         return;
     }
@@ -420,6 +444,15 @@ function hq_require_api(): void {
         echo json_encode([
             'success' => false,
             'message' => 'Forbidden'
+        ]);
+        exit();
+    }
+
+    if (!csrf_validate_request_token()) {
+        http_response_code(419);
+        echo json_encode([
+            'success' => false,
+            'message' => 'CSRF token mismatch'
         ]);
         exit();
     }

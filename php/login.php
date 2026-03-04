@@ -1,6 +1,7 @@
 <?php
 include_once __DIR__ . '/session-bootstrap.php';
 secure_session_start();
+include_once __DIR__ . '/csrf.php';
 header('Content-Type: application/json');
 
 const LOGIN_RATE_LIMIT_WINDOW_SECONDS = 900; // 15 minutes
@@ -223,6 +224,8 @@ try {
     $_SESSION['role'] = $role;
     $_SESSION['is_admin'] = true;
     tenant_set_session_context($business);
+    csrf_rotate_token();
+    csrf_issue_cookie();
     clear_login_attempts($conn, $attemptKey, $clientIp);
     $shouldRecordFailure = false;
 

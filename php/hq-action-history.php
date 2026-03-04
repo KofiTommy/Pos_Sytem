@@ -8,7 +8,9 @@ include __DIR__ . '/tenant-context.php';
 const HQ_HISTORY_ALLOWED_ACTIONS = [
     'set_business_status',
     'issue_owner_reset_link',
-    'set_alert_status'
+    'set_alert_status',
+    'send_broadcast_notice',
+    'deactivate_broadcast_notice'
 ];
 
 function respond(bool $success, string $message = '', array $extra = [], int $statusCode = 200): void {

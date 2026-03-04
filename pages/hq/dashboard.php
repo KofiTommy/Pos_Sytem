@@ -69,6 +69,32 @@ $hqActionsEnabled = hq_actions_enabled();
             margin-top: 0.4rem;
             flex-wrap: wrap;
         }
+        .hq-support-item {
+            border: 1px solid var(--hq-border);
+            border-radius: 10px;
+            padding: 0.65rem;
+            margin-bottom: 0.55rem;
+            background: #fdfefe;
+        }
+        .hq-support-actions {
+            display: flex;
+            gap: 0.35rem;
+            flex-wrap: wrap;
+            margin-top: 0.45rem;
+        }
+        .hq-broadcast-item {
+            border: 1px solid var(--hq-border);
+            border-radius: 10px;
+            padding: 0.65rem;
+            margin-bottom: 0.55rem;
+            background: #fdfefe;
+        }
+        .hq-broadcast-item .subject {
+            font-weight: 600;
+        }
+        .hq-broadcast-item .message {
+            white-space: pre-wrap;
+        }
     </style>
 </head>
 <body>
@@ -250,6 +276,8 @@ $hqActionsEnabled = hq_actions_enabled();
                                     <option value="set_business_status">Business status updates</option>
                                     <option value="issue_owner_reset_link">Owner reset links</option>
                                     <option value="set_alert_status">Alert workflow updates</option>
+                                    <option value="send_broadcast_notice">Broadcast sends</option>
+                                    <option value="deactivate_broadcast_notice">Broadcast deactivations</option>
                                 </select>
                             </div>
                             <div class="col-12">
@@ -272,18 +300,108 @@ $hqActionsEnabled = hq_actions_enabled();
                     </form>
                     <div id="actionHistoryList" class="small text-muted">No actions recorded yet.</div>
                 </div>
+                <div class="hq-card p-3 mt-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h2 class="h6 mb-0">Support Inbox</h2>
+                        <button id="refreshSupportBtn" class="btn btn-sm btn-outline-secondary">Refresh</button>
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-5">
+                            <label for="supportStatusFilter" class="form-label form-label-sm mb-1">Status</label>
+                            <select id="supportStatusFilter" class="form-select form-select-sm">
+                                <option value="">All</option>
+                                <option value="new">New</option>
+                                <option value="in_progress">In Progress</option>
+                                <option value="resolved">Resolved</option>
+                                <option value="closed">Closed</option>
+                            </select>
+                        </div>
+                        <div class="col-7">
+                            <label for="supportSearch" class="form-label form-label-sm mb-1">Search</label>
+                            <input id="supportSearch" class="form-control form-control-sm" maxlength="120" placeholder="subject, business, sender">
+                        </div>
+                    </div>
+                    <div id="supportMeta" class="small text-muted mb-2">No support messages loaded yet.</div>
+                    <div id="supportInboxList" class="small text-muted">No support messages yet.</div>
+                </div>
+                <div class="hq-card p-3 mt-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h2 class="h6 mb-0">Broadcast Updates</h2>
+                        <button id="refreshBroadcastsBtn" class="btn btn-sm btn-outline-secondary">Refresh</button>
+                    </div>
+                    <form id="broadcastForm" class="mb-2">
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <label for="broadcastScope" class="form-label form-label-sm mb-1">Scope</label>
+                                <select id="broadcastScope" class="form-select form-select-sm">
+                                    <option value="all_active">All active shops</option>
+                                    <option value="selected">Selected shop</option>
+                                </select>
+                            </div>
+                            <div class="col-6">
+                                <label for="broadcastBusinessId" class="form-label form-label-sm mb-1">Shop</label>
+                                <select id="broadcastBusinessId" class="form-select form-select-sm" disabled>
+                                    <option value="">Use all active shops</option>
+                                </select>
+                            </div>
+                            <div class="col-6">
+                                <label for="broadcastAudience" class="form-label form-label-sm mb-1">Audience</label>
+                                <select id="broadcastAudience" class="form-select form-select-sm">
+                                    <option value="customers">Customers</option>
+                                    <option value="owners">Store owners</option>
+                                    <option value="all">Customers + Owners</option>
+                                </select>
+                            </div>
+                            <div class="col-6">
+                                <label for="broadcastChannel" class="form-label form-label-sm mb-1">Delivery</label>
+                                <select id="broadcastChannel" class="form-select form-select-sm">
+                                    <option value="both">Email + in-app</option>
+                                    <option value="in_app">In-app only</option>
+                                    <option value="email">Email only</option>
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <label for="broadcastSubject" class="form-label form-label-sm mb-1">Subject</label>
+                                <input id="broadcastSubject" class="form-control form-control-sm" maxlength="180" required placeholder="Update summary">
+                            </div>
+                            <div class="col-12">
+                                <label for="broadcastMessage" class="form-label form-label-sm mb-1">Message</label>
+                                <textarea id="broadcastMessage" class="form-control form-control-sm" rows="4" maxlength="5000" required placeholder="Write the full announcement to owners/customers."></textarea>
+                            </div>
+                            <div class="col-6">
+                                <label for="broadcastStartsAt" class="form-label form-label-sm mb-1">Start (optional)</label>
+                                <input type="datetime-local" id="broadcastStartsAt" class="form-control form-control-sm">
+                            </div>
+                            <div class="col-6">
+                                <label for="broadcastExpiresAt" class="form-label form-label-sm mb-1">Expiry (optional)</label>
+                                <input type="datetime-local" id="broadcastExpiresAt" class="form-control form-control-sm">
+                            </div>
+                            <div class="col-12 d-flex gap-2 mt-1">
+                                <button id="sendBroadcastBtn" type="submit" class="btn btn-sm btn-primary w-100">Send Update</button>
+                                <button id="clearBroadcastBtn" type="button" class="btn btn-sm btn-outline-secondary">Clear</button>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="broadcastMeta" class="small text-muted mb-2">No broadcasts loaded yet.</div>
+                    <div id="broadcastList" class="small text-muted">No broadcasts yet.</div>
+                </div>
             </div>
         </div>
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <script src="../../js/api-client.js"></script>
     <script>
         const HQ_ACTIONS_ENABLED = <?php echo $hqActionsEnabled ? 'true' : 'false'; ?>;
         let latestScoreboard = [];
         let latestAlerts = [];
         let latestDashboardData = null;
+        let latestSupportMessages = [];
+        let latestBroadcasts = [];
         let actionInFlight = false;
         let alertWorkflowInFlight = false;
+        let supportUpdateInFlight = false;
+        let broadcastInFlight = false;
         let salesTrendChart = null;
         let ordersTrendChart = null;
 
@@ -335,6 +453,384 @@ $hqActionsEnabled = hq_actions_enabled();
                 parts.push(`<div class="text-muted mt-1">Expires at: ${escapeHtml(extra.expires_at)}</div>`);
             }
             host.innerHTML = parts.join('');
+        }
+
+        function supportStatusClass(status) {
+            const normalized = String(status || '').toLowerCase();
+            if (normalized === 'resolved') return 'text-bg-success';
+            if (normalized === 'in_progress') return 'text-bg-warning';
+            if (normalized === 'closed') return 'text-bg-dark';
+            return 'text-bg-primary';
+        }
+
+        function supportPreview(message) {
+            const text = String(message || '').trim();
+            if (text.length <= 280) {
+                return text;
+            }
+            return text.slice(0, 280) + '...';
+        }
+
+        function supportActionButtons(row) {
+            const status = String(row.status || '').toLowerCase();
+            if (status === 'new') {
+                return `
+                    <button class="btn btn-sm btn-outline-warning" data-support-action="status" data-support-id="${Number(row.id || 0)}" data-support-status="in_progress">In Progress</button>
+                    <button class="btn btn-sm btn-outline-success" data-support-action="status" data-support-id="${Number(row.id || 0)}" data-support-status="resolved">Resolve</button>
+                    <button class="btn btn-sm btn-outline-dark" data-support-action="status" data-support-id="${Number(row.id || 0)}" data-support-status="closed">Close</button>
+                `;
+            }
+            if (status === 'in_progress') {
+                return `
+                    <button class="btn btn-sm btn-outline-success" data-support-action="status" data-support-id="${Number(row.id || 0)}" data-support-status="resolved">Resolve</button>
+                    <button class="btn btn-sm btn-outline-primary" data-support-action="status" data-support-id="${Number(row.id || 0)}" data-support-status="new">Reopen</button>
+                    <button class="btn btn-sm btn-outline-dark" data-support-action="status" data-support-id="${Number(row.id || 0)}" data-support-status="closed">Close</button>
+                `;
+            }
+            if (status === 'resolved') {
+                return `
+                    <button class="btn btn-sm btn-outline-primary" data-support-action="status" data-support-id="${Number(row.id || 0)}" data-support-status="new">Reopen</button>
+                    <button class="btn btn-sm btn-outline-dark" data-support-action="status" data-support-id="${Number(row.id || 0)}" data-support-status="closed">Close</button>
+                `;
+            }
+            return `
+                <button class="btn btn-sm btn-outline-primary" data-support-action="status" data-support-id="${Number(row.id || 0)}" data-support-status="new">Reopen</button>
+            `;
+        }
+
+        function renderSupportMessages(messages, counts = {}) {
+            latestSupportMessages = Array.isArray(messages) ? messages : [];
+
+            const supportMeta = document.getElementById('supportMeta');
+            const totalNew = Number((counts || {}).new || 0);
+            const totalProgress = Number((counts || {}).in_progress || 0);
+            const totalResolved = Number((counts || {}).resolved || 0);
+            const totalClosed = Number((counts || {}).closed || 0);
+            supportMeta.textContent = `New: ${totalNew} | In progress: ${totalProgress} | Resolved: ${totalResolved} | Closed: ${totalClosed}`;
+
+            const host = document.getElementById('supportInboxList');
+            if (!latestSupportMessages.length) {
+                host.innerHTML = '<div class="text-muted">No support messages found for the selected filters.</div>';
+                return;
+            }
+
+            host.innerHTML = latestSupportMessages.map((row) => `
+                <div class="hq-support-item">
+                    <div class="d-flex justify-content-between align-items-start gap-2">
+                        <div>
+                            <div class="fw-semibold">${escapeHtml(row.subject || '(no subject)')}</div>
+                            <div class="small text-muted">
+                                ${escapeHtml(row.business_name || '-')} (${escapeHtml(row.business_code || '-')}) |
+                                ${escapeHtml(row.sender_role || '-')} |
+                                ${escapeHtml(row.created_at || '-')}
+                            </div>
+                            <div class="small">
+                                ${escapeHtml(row.sender_name || '-')} |
+                                <a href="mailto:${encodeURIComponent(row.sender_email || '')}">${escapeHtml(row.sender_email || '-')}</a>
+                                ${row.sender_phone ? `| ${escapeHtml(row.sender_phone)}` : ''}
+                            </div>
+                            <div class="mt-1">${escapeHtml(supportPreview(row.message || ''))}</div>
+                            ${row.hq_note ? `<div class="small text-muted mt-1"><strong>HQ note:</strong> ${escapeHtml(row.hq_note)}</div>` : ''}
+                            ${row.resolved_by ? `<div class="small text-muted mt-1">Handled by ${escapeHtml(row.resolved_by)} at ${escapeHtml(row.resolved_at || '-')}</div>` : ''}
+                        </div>
+                        <span class="badge ${supportStatusClass(row.status)}">${escapeHtml(row.status || 'new')}</span>
+                    </div>
+                    <div class="hq-support-actions">
+                        ${supportActionButtons(row)}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function loadSupportMessages() {
+            const params = new URLSearchParams({
+                limit: '40'
+            });
+            const status = String(document.getElementById('supportStatusFilter').value || '').trim();
+            const q = String(document.getElementById('supportSearch').value || '').trim();
+            if (status !== '') {
+                params.set('status', status);
+            }
+            if (q !== '') {
+                params.set('q', q);
+            }
+
+            const { response, data } = await fetchJsonWithSession(`../../php/support-messages.php?${params.toString()}`);
+            if (!response.ok) {
+                throw new Error((data && data.message) || 'Failed to load support messages.');
+            }
+            if (!data.success) {
+                throw new Error(data.message || 'Failed to load support messages.');
+            }
+            renderSupportMessages(data.messages || [], data.counts || {});
+        }
+
+        async function updateSupportStatus(id, status) {
+            if (supportUpdateInFlight) {
+                showAlert('Another support update is in progress.', 'warning');
+                return;
+            }
+            supportUpdateInFlight = true;
+            try {
+                const { response, data } = await fetchJsonWithSession('../../php/support-messages.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        _method: 'PUT',
+                        id: Number(id || 0),
+                        status: String(status || '').trim()
+                    })
+                });
+                if (!response.ok) {
+                    throw new Error((data && data.message) || 'Failed to update support status.');
+                }
+                if (!data.success) {
+                    throw new Error(data.message || 'Failed to update support status.');
+                }
+                await loadSupportMessages();
+            } finally {
+                supportUpdateInFlight = false;
+            }
+        }
+
+        function broadcastBusinessOptionLabel(row) {
+            const name = String(row.business_name || '').trim();
+            const code = String(row.business_code || '').trim();
+            if (name && code) {
+                return `${name} (${code})`;
+            }
+            if (name) {
+                return name;
+            }
+            if (code) {
+                return code;
+            }
+            return `Business #${Number(row.business_id || 0)}`;
+        }
+
+        function normalizeBroadcastScopeControls() {
+            const scopeEl = document.getElementById('broadcastScope');
+            const shopEl = document.getElementById('broadcastBusinessId');
+            const scope = String(scopeEl.value || 'all_active');
+            const selectedScope = scope === 'selected' ? 'selected' : 'all_active';
+            scopeEl.value = selectedScope;
+            if (selectedScope === 'selected') {
+                shopEl.disabled = false;
+                return;
+            }
+            shopEl.disabled = true;
+            shopEl.value = '';
+        }
+
+        function populateBroadcastBusinessOptions() {
+            const shopEl = document.getElementById('broadcastBusinessId');
+            const seen = new Set();
+            const options = ['<option value="">Use all active shops</option>'];
+
+            const rows = Array.isArray(latestScoreboard) ? latestScoreboard : [];
+            rows.forEach((row) => {
+                const businessId = Number(row.business_id || 0);
+                const status = String(row.status || '').toLowerCase();
+                if (!Number.isFinite(businessId) || businessId <= 0) return;
+                if (status !== 'active') return;
+                if (seen.has(businessId)) return;
+                seen.add(businessId);
+                options.push(`<option value="${businessId}">${escapeHtml(broadcastBusinessOptionLabel(row))}</option>`);
+            });
+
+            const previousValue = String(shopEl.value || '');
+            shopEl.innerHTML = options.join('');
+            if (previousValue && Array.from(shopEl.options).some((option) => String(option.value) === previousValue)) {
+                shopEl.value = previousValue;
+            }
+
+            normalizeBroadcastScopeControls();
+        }
+
+        function setDefaultBroadcastForm() {
+            document.getElementById('broadcastScope').value = 'all_active';
+            document.getElementById('broadcastAudience').value = 'customers';
+            document.getElementById('broadcastChannel').value = 'both';
+            document.getElementById('broadcastSubject').value = '';
+            document.getElementById('broadcastMessage').value = '';
+            document.getElementById('broadcastStartsAt').value = '';
+            document.getElementById('broadcastExpiresAt').value = '';
+            normalizeBroadcastScopeControls();
+        }
+
+        function renderBroadcasts(broadcasts) {
+            latestBroadcasts = Array.isArray(broadcasts) ? broadcasts : [];
+            const metaHost = document.getElementById('broadcastMeta');
+            const listHost = document.getElementById('broadcastList');
+
+            const activeCount = latestBroadcasts.filter((row) => !!row.is_active).length;
+            const inactiveCount = latestBroadcasts.length - activeCount;
+            const emailSentCount = latestBroadcasts.reduce((sum, row) => sum + Number(row.email_sent_count || 0), 0);
+            const emailFailedCount = latestBroadcasts.reduce((sum, row) => sum + Number(row.email_failed_count || 0), 0);
+
+            metaHost.textContent = `Active: ${activeCount} | Inactive: ${inactiveCount} | Email sent: ${emailSentCount} | Email failed: ${emailFailedCount}`;
+
+            if (latestBroadcasts.length === 0) {
+                listHost.innerHTML = '<div class="text-muted">No broadcasts yet.</div>';
+                return;
+            }
+
+            listHost.innerHTML = latestBroadcasts.map((row) => {
+                const message = String(row.message_preview || row.message || '').trim();
+                const isActive = !!row.is_active;
+                const audience = String(row.audience || 'customers');
+                const channel = String(row.channel || 'in_app');
+                const businessName = String(row.business_name || row.business_code || `Business #${Number(row.business_id || 0)}`);
+                const actionButton = isActive
+                    ? `<button class="btn btn-sm btn-outline-dark" data-broadcast-action="deactivate" data-broadcast-id="${Number(row.id || 0)}">Deactivate</button>`
+                    : '';
+
+                return `
+                    <div class="hq-broadcast-item">
+                        <div class="d-flex justify-content-between align-items-start gap-2">
+                            <div>
+                                <div class="subject">${escapeHtml(row.subject || 'Update')}</div>
+                                <div class="small text-muted">${escapeHtml(businessName)} | ${escapeHtml(audience)} | ${escapeHtml(channel)} | ${escapeHtml(row.created_at || '-')}</div>
+                                <div class="message mt-1">${escapeHtml(message)}</div>
+                                <div class="small text-muted mt-1">
+                                    Email sent: ${Number(row.email_sent_count || 0)} | failed: ${Number(row.email_failed_count || 0)}
+                                    ${row.expires_at ? ` | expires: ${escapeHtml(row.expires_at)}` : ''}
+                                </div>
+                            </div>
+                            <div class="d-flex flex-column align-items-end gap-1">
+                                <span class="badge ${isActive ? 'text-bg-success' : 'text-bg-secondary'}">${isActive ? 'active' : 'inactive'}</span>
+                                ${actionButton}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function loadBroadcasts() {
+            const { response, data } = await fetchJsonWithSession('../../php/hq-broadcasts.php?limit=25');
+            if (!response.ok) {
+                throw new Error((data && data.message) || 'Failed to load broadcasts.');
+            }
+            if (!data.success) {
+                throw new Error(data.message || 'Failed to load broadcasts.');
+            }
+            renderBroadcasts(data.broadcasts || []);
+        }
+
+        async function sendBroadcastNotice() {
+            if (!HQ_ACTIONS_ENABLED) {
+                showAlert('Broadcast actions are disabled. Set HQ_ACTIONS_ENABLED=true first.', 'warning');
+                return;
+            }
+            if (broadcastInFlight) {
+                showAlert('Another broadcast request is in progress.', 'warning');
+                return;
+            }
+
+            const scope = String(document.getElementById('broadcastScope').value || 'all_active');
+            const businessId = Number(document.getElementById('broadcastBusinessId').value || 0);
+            const audience = String(document.getElementById('broadcastAudience').value || 'customers');
+            const channel = String(document.getElementById('broadcastChannel').value || 'both');
+            const subject = String(document.getElementById('broadcastSubject').value || '').trim();
+            const message = String(document.getElementById('broadcastMessage').value || '').trim();
+            const startsAt = String(document.getElementById('broadcastStartsAt').value || '').trim();
+            const expiresAt = String(document.getElementById('broadcastExpiresAt').value || '').trim();
+
+            if (scope === 'selected' && (!Number.isFinite(businessId) || businessId <= 0)) {
+                showAlert('Select a target shop for the broadcast.', 'warning');
+                return;
+            }
+            if (!subject) {
+                showAlert('Broadcast subject is required.', 'warning');
+                return;
+            }
+            if (!message) {
+                showAlert('Broadcast message is required.', 'warning');
+                return;
+            }
+            if (startsAt && expiresAt && startsAt >= expiresAt) {
+                showAlert('Broadcast expiry must be later than start.', 'warning');
+                return;
+            }
+
+            const payload = {
+                action: 'create',
+                business_scope: scope,
+                audience: audience,
+                channel: channel,
+                subject: subject,
+                message: message
+            };
+            if (scope === 'selected') {
+                payload.business_id = businessId;
+            }
+            if (startsAt) {
+                payload.starts_at = startsAt;
+            }
+            if (expiresAt) {
+                payload.expires_at = expiresAt;
+            }
+
+            const sendBtn = document.getElementById('sendBroadcastBtn');
+            broadcastInFlight = true;
+            sendBtn.disabled = true;
+            try {
+                const { response, data } = await fetchJsonWithSession('../../php/hq-broadcasts.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!response.ok) {
+                    throw new Error((data && data.message) || 'Failed to send broadcast.');
+                }
+                if (!data.success) {
+                    throw new Error(data.message || 'Failed to send broadcast.');
+                }
+
+                showAlert(
+                    `Broadcast sent. Notices: ${Number(data.created_count || 0)} | Email sent: ${Number(data.email_sent || 0)} | Failed: ${Number(data.email_failed || 0)}`,
+                    'success'
+                );
+                document.getElementById('broadcastSubject').value = '';
+                document.getElementById('broadcastMessage').value = '';
+                document.getElementById('broadcastStartsAt').value = '';
+                document.getElementById('broadcastExpiresAt').value = '';
+                await loadBroadcasts();
+                await loadActionHistory();
+            } finally {
+                broadcastInFlight = false;
+                sendBtn.disabled = false;
+            }
+        }
+
+        async function deactivateBroadcastNotice(id) {
+            if (!HQ_ACTIONS_ENABLED) {
+                showAlert('Broadcast actions are disabled. Set HQ_ACTIONS_ENABLED=true first.', 'warning');
+                return;
+            }
+
+            const noticeId = Number(id || 0);
+            if (!Number.isFinite(noticeId) || noticeId <= 0) {
+                return;
+            }
+
+            const { response, data } = await fetchJsonWithSession('../../php/hq-broadcasts.php', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'deactivate',
+                    id: noticeId
+                })
+            });
+            if (!response.ok) {
+                throw new Error((data && data.message) || 'Failed to deactivate broadcast.');
+            }
+            if (!data.success) {
+                throw new Error(data.message || 'Failed to deactivate broadcast.');
+            }
+            await loadBroadcasts();
+            await loadActionHistory();
         }
 
         async function fetchJsonWithSession(url, options = {}) {
@@ -464,6 +960,8 @@ $hqActionsEnabled = hq_actions_enabled();
             if (normalized === 'set_business_status') return 'Business status updated';
             if (normalized === 'issue_owner_reset_link') return 'Owner reset link issued';
             if (normalized === 'set_alert_status') return 'Alert workflow updated';
+            if (normalized === 'send_broadcast_notice') return 'Broadcast sent';
+            if (normalized === 'deactivate_broadcast_notice') return 'Broadcast deactivated';
             if (!normalized) return 'Action';
             return normalized.replace(/_/g, ' ');
         }
@@ -500,6 +998,34 @@ $hqActionsEnabled = hq_actions_enabled();
                 }
                 if (status) {
                     return `Status: ${status}`;
+                }
+            }
+
+            if (normalized === 'send_broadcast_notice') {
+                const subject = String(details.subject || '');
+                const audience = String(details.audience || '');
+                const channel = String(details.channel || '');
+                const sent = Number(details.email_sent || 0);
+                const failed = Number(details.email_failed || 0);
+                const parts = [];
+                if (subject) parts.push(subject);
+                if (audience || channel) {
+                    parts.push(`${audience || '-'} / ${channel || '-'}`);
+                }
+                if (channel === 'email' || channel === 'both') {
+                    parts.push(`email sent=${sent}, failed=${failed}`);
+                }
+                return parts.join(' | ');
+            }
+
+            if (normalized === 'deactivate_broadcast_notice') {
+                const subject = String(details.subject || '');
+                const id = Number(details.notice_id || 0);
+                if (subject && id > 0) {
+                    return `#${id}: ${subject}`;
+                }
+                if (id > 0) {
+                    return `Notice #${id}`;
                 }
             }
 
@@ -738,6 +1264,7 @@ $hqActionsEnabled = hq_actions_enabled();
             const tbody = document.getElementById('scoreboardRows');
             if (!latestScoreboard || latestScoreboard.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="12" class="text-muted">No data available.</td></tr>';
+                populateBroadcastBusinessOptions();
                 return;
             }
 
@@ -782,6 +1309,7 @@ $hqActionsEnabled = hq_actions_enabled();
                     </tr>
                 `;
             }).join('');
+            populateBroadcastBusinessOptions();
         }
 
         async function runControlAction(payload) {
@@ -1061,6 +1589,31 @@ $hqActionsEnabled = hq_actions_enabled();
             }
         });
 
+        document.getElementById('supportInboxList').addEventListener('click', async (event) => {
+            const button = event.target.closest('button[data-support-action="status"]');
+            if (!button) return;
+
+            const id = Number(button.getAttribute('data-support-id') || 0);
+            const status = String(button.getAttribute('data-support-status') || '').trim();
+            if (!Number.isFinite(id) || id <= 0 || status === '') {
+                return;
+            }
+
+            const proceed = window.confirm(`Set support ticket #${id} to ${status}?`);
+            if (!proceed) {
+                return;
+            }
+
+            button.disabled = true;
+            try {
+                await updateSupportStatus(id, status);
+            } catch (error) {
+                showAlert(error.message || 'Failed to update support ticket.', 'danger');
+            } finally {
+                button.disabled = false;
+            }
+        });
+
         document.getElementById('refreshBtn').addEventListener('click', loadDashboard);
         document.getElementById('resetBtn').addEventListener('click', () => {
             setDefaultRange();
@@ -1069,6 +1622,20 @@ $hqActionsEnabled = hq_actions_enabled();
         document.getElementById('exportScoreboardBtn').addEventListener('click', exportScoreboardCsv);
         document.getElementById('exportAlertsBtn').addEventListener('click', exportAlertsCsv);
         document.getElementById('refreshHistoryBtn').addEventListener('click', loadActionHistory);
+        document.getElementById('refreshSupportBtn').addEventListener('click', () => {
+            loadSupportMessages().catch((error) => showAlert(error.message || 'Failed to load support messages.', 'danger'));
+        });
+        document.getElementById('refreshBroadcastsBtn').addEventListener('click', () => {
+            loadBroadcasts().catch((error) => showAlert(error.message || 'Failed to load broadcasts.', 'danger'));
+        });
+        document.getElementById('supportStatusFilter').addEventListener('change', () => {
+            loadSupportMessages().catch((error) => showAlert(error.message || 'Failed to load support messages.', 'danger'));
+        });
+        document.getElementById('supportSearch').addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter') return;
+            event.preventDefault();
+            loadSupportMessages().catch((error) => showAlert(error.message || 'Failed to load support messages.', 'danger'));
+        });
         document.getElementById('historyFilterForm').addEventListener('submit', (event) => {
             event.preventDefault();
             loadActionHistory();
@@ -1077,11 +1644,46 @@ $hqActionsEnabled = hq_actions_enabled();
             setDefaultHistoryFilters();
             loadActionHistory();
         });
+        document.getElementById('broadcastScope').addEventListener('change', normalizeBroadcastScopeControls);
+        document.getElementById('broadcastForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            try {
+                await sendBroadcastNotice();
+            } catch (error) {
+                showAlert(error.message || 'Failed to send broadcast.', 'danger');
+            }
+        });
+        document.getElementById('clearBroadcastBtn').addEventListener('click', () => {
+            setDefaultBroadcastForm();
+        });
+        document.getElementById('broadcastList').addEventListener('click', async (event) => {
+            const button = event.target.closest('button[data-broadcast-action="deactivate"]');
+            if (!button) return;
+
+            const noticeId = Number(button.getAttribute('data-broadcast-id') || 0);
+            if (!Number.isFinite(noticeId) || noticeId <= 0) return;
+
+            const proceed = window.confirm(`Deactivate broadcast #${noticeId}?`);
+            if (!proceed) return;
+
+            button.disabled = true;
+            try {
+                await deactivateBroadcastNotice(noticeId);
+            } catch (error) {
+                showAlert(error.message || 'Failed to deactivate broadcast.', 'danger');
+            } finally {
+                button.disabled = false;
+            }
+        });
 
         setDefaultRange();
         setDefaultHistoryFilters();
+        setDefaultBroadcastForm();
+        populateBroadcastBusinessOptions();
         loadDashboard();
         loadActionHistory();
+        loadSupportMessages().catch((error) => showAlert(error.message || 'Failed to load support messages.', 'danger'));
+        loadBroadcasts().catch((error) => showAlert(error.message || 'Failed to load broadcasts.', 'danger'));
     </script>
 </body>
 </html>

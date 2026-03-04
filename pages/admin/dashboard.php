@@ -207,6 +207,7 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
                     <ul class="dropdown-menu dropdown-menu-end">
                         <li><a class="dropdown-item" href="dashboard.php">Dashboard</a></li>
                         <li><a class="dropdown-item" href="operations-alerts.php">Ops Alerts</a></li>
+                        <li><a class="dropdown-item" href="support.php">CediTill Support</a></li>
                         <li><a class="dropdown-item" href="business-settings.php">Business Info</a></li>
                         <li><a class="dropdown-item" href="payment-settings.php">Payment Settings</a></li>
                         <li><a class="dropdown-item" href="users.php">Manage Staff</a></li>
@@ -287,6 +288,9 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
                 <div class="list-group mt-2">
                     <a href="operations-alerts.php" class="list-group-item list-group-item-action">
                         <i class="fas fa-triangle-exclamation me-2"></i>Ops Alerts
+                    </a>
+                    <a href="support.php" class="list-group-item list-group-item-action">
+                        <i class="fas fa-life-ring me-2"></i>CediTill Support
                     </a>
                     <a href="business-settings.php" class="list-group-item list-group-item-action">
                         <i class="fas fa-briefcase me-2"></i>Business Info
@@ -661,6 +665,8 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="../../js/admin-notifications.js"></script>
+    <script src="../../js/api-client.js"></script>
+    <script src="../../js/broadcast-notices.js?v=20260304-1"></script>
     <script>
         let salesTrendChart;
         let categoryChart;

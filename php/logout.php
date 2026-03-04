@@ -1,6 +1,7 @@
 <?php
 include_once __DIR__ . '/session-bootstrap.php';
 secure_session_start();
+include_once __DIR__ . '/csrf.php';
 
 $tenantCode = '';
 if (isset($_SESSION['business_code']) && is_string($_SESSION['business_code'])) {
@@ -32,6 +33,7 @@ session_destroy();
 
 expire_cookie('username');
 expire_cookie('business_code');
+csrf_clear_cookie();
 
 header('Content-Type: text/html; charset=UTF-8');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');

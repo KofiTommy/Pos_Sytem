@@ -1,6 +1,7 @@
 <?php
 include_once __DIR__ . '/session-bootstrap.php';
 secure_session_start();
+include_once __DIR__ . '/csrf.php';
 
 function current_user_role() {
     $role = $_SESSION['role'] ?? '';
@@ -23,6 +24,22 @@ function current_business_code() {
     return is_string($code) ? trim($code) : '';
 }
 
+function resolve_admin_api_method() {
+    $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
+    if ($method !== 'POST') {
+        return $method;
+    }
+
+    $overrideRaw = $_SERVER['HTTP_X_HTTP_METHOD_OVERRIDE'] ?? ($_POST['_method'] ?? '');
+    $override = strtoupper(trim((string)$overrideRaw));
+    if (!in_array($override, ['PUT', 'DELETE', 'PATCH'], true)) {
+        return $method;
+    }
+
+    $_SERVER['REQUEST_METHOD'] = $override;
+    return $override;
+}
+
 function is_admin_authenticated() {
     return isset($_SESSION['user_id']) && current_user_role() !== '' && current_business_id() > 0;
 }
@@ -32,6 +49,7 @@ function require_admin_page($redirect_url = '../pages/login.html') {
         header('Location: ' . $redirect_url);
         exit();
     }
+    csrf_issue_cookie();
 }
 
 function require_admin_api() {
@@ -45,7 +63,8 @@ function require_admin_api() {
         exit();
     }
 
-    $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
+    $method = resolve_admin_api_method();
+    csrf_issue_cookie();
     if (!in_array($method, ['GET', 'HEAD', 'OPTIONS'], true)) {
         $host = strtolower(trim((string)($_SERVER['HTTP_HOST'] ?? '')));
         $host = explode(':', $host)[0] ?? '';
@@ -66,6 +85,16 @@ function require_admin_api() {
             echo json_encode([
                 'success' => false,
                 'message' => 'Forbidden'
+            ]);
+            exit();
+        }
+
+        if (!csrf_validate_request_token()) {
+            http_response_code(419);
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => false,
+                'message' => 'CSRF token mismatch'
             ]);
             exit();
         }
