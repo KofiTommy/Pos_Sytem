@@ -100,16 +100,20 @@ try {
     $requestedName = isset($_GET['name']) ? (string)$_GET['name'] : '';
     $safeRequestedName = sanitize_image_name($requestedName);
     $requesterBusinessId = 0;
+    $requestedNameIsProtected = false;
     if ($safeRequestedName !== '' && file_storage_is_managed_upload_filename($safeRequestedName)) {
         ensure_multitenant_schema($conn);
         ensure_file_storage_policy_table($conn);
-        $requesterBusinessId = file_storage_requester_business_id($conn);
-        if (!file_storage_can_access_filename($conn, $safeRequestedName, $requesterBusinessId)) {
-            http_response_code(403);
-            header('Cache-Control: no-store, max-age=0');
-            header('Content-Type: image/svg+xml; charset=UTF-8');
-            echo '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500"><rect width="800" height="500" fill="#eef4f3"/><g fill="#6b7280" font-family="Segoe UI, Arial, sans-serif" text-anchor="middle"><text x="400" y="240" font-size="34" font-weight="700">Image unavailable</text><text x="400" y="282" font-size="20">Please check back later</text></g></svg>';
-            exit();
+        $requestedNameIsProtected = file_storage_has_policy_record($conn, $safeRequestedName);
+        if ($requestedNameIsProtected) {
+            $requesterBusinessId = file_storage_requester_business_id($conn);
+            if (!file_storage_can_access_filename($conn, $safeRequestedName, $requesterBusinessId)) {
+                http_response_code(403);
+                header('Cache-Control: no-store, max-age=0');
+                header('Content-Type: image/svg+xml; charset=UTF-8');
+                echo '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500"><rect width="800" height="500" fill="#eef4f3"/><g fill="#6b7280" font-family="Segoe UI, Arial, sans-serif" text-anchor="middle"><text x="400" y="240" font-size="34" font-weight="700">Image unavailable</text><text x="400" y="282" font-size="20">Please check back later</text></g></svg>';
+                exit();
+            }
         }
     }
 
@@ -118,18 +122,27 @@ try {
 
     foreach ($candidates as $candidateName) {
         if (file_storage_is_managed_upload_filename($candidateName)) {
-            if ($requesterBusinessId <= 0) {
-                $requesterBusinessId = file_storage_requester_business_id($conn);
-            }
-            if (!file_storage_can_access_filename($conn, $candidateName, $requesterBusinessId)) {
-                continue;
+            $candidateIsProtected = ($candidateName === $safeRequestedName)
+                ? $requestedNameIsProtected
+                : file_storage_has_policy_record($conn, $candidateName);
+            if ($candidateIsProtected) {
+                if ($requesterBusinessId <= 0) {
+                    $requesterBusinessId = file_storage_requester_business_id($conn);
+                }
+                if (!file_storage_can_access_filename($conn, $candidateName, $requesterBusinessId)) {
+                    continue;
+                }
             }
         }
 
         $resolved = resolve_existing_image_path($imagesDir, $candidateName);
         if ($resolved !== null) {
-            $isManagedUpload = file_storage_is_managed_upload_filename($candidateName);
-            output_image_file($resolved, !$isManagedUpload);
+            $isPolicyProtected = file_storage_is_managed_upload_filename($candidateName)
+                && (
+                    ($candidateName === $safeRequestedName && $requestedNameIsProtected)
+                    || ($candidateName !== $safeRequestedName && file_storage_has_policy_record($conn, $candidateName))
+                );
+            output_image_file($resolved, !$isPolicyProtected);
         }
     }
 

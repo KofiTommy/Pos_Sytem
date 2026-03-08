@@ -86,6 +86,30 @@ function register_file_asset_policy(
     $stmt->close();
 }
 
+function file_storage_has_policy_record(mysqli $conn, string $filename): bool {
+    $safeName = file_storage_sanitize_filename($filename);
+    if ($safeName === '') {
+        return false;
+    }
+    if (!tenant_table_exists($conn, 'file_assets')) {
+        return false;
+    }
+
+    $stmt = $conn->prepare(
+        "SELECT 1
+         FROM file_assets
+         WHERE filename = ?
+         LIMIT 1"
+    );
+    $stmt->bind_param('s', $safeName);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $hasRecord = $result instanceof mysqli_result && $result->num_rows > 0;
+    $stmt->close();
+
+    return $hasRecord;
+}
+
 function file_storage_owner_business_ids(mysqli $conn, string $filename): array {
     $safeName = file_storage_sanitize_filename($filename);
     if ($safeName === '') {
@@ -99,45 +123,6 @@ function file_storage_owner_business_ids(mysqli $conn, string $filename): array 
             "SELECT business_id
              FROM file_assets
              WHERE filename = ?
-             LIMIT 10"
-        );
-        $stmt->bind_param('s', $safeName);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        while ($row = $result->fetch_assoc()) {
-            $id = intval($row['business_id'] ?? 0);
-            if ($id > 0) {
-                $ids[] = $id;
-            }
-        }
-        $stmt->close();
-    }
-
-    // Backward compatibility for files uploaded before file_assets policy table existed.
-    if (tenant_table_exists($conn, 'products')) {
-        $stmt = $conn->prepare(
-            "SELECT DISTINCT business_id
-             FROM products
-             WHERE image = ?
-             LIMIT 10"
-        );
-        $stmt->bind_param('s', $safeName);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        while ($row = $result->fetch_assoc()) {
-            $id = intval($row['business_id'] ?? 0);
-            if ($id > 0) {
-                $ids[] = $id;
-            }
-        }
-        $stmt->close();
-    }
-
-    if (tenant_table_exists($conn, 'business_settings')) {
-        $stmt = $conn->prepare(
-            "SELECT DISTINCT business_id
-             FROM business_settings
-             WHERE logo_filename = ?
              LIMIT 10"
         );
         $stmt->bind_param('s', $safeName);
@@ -250,6 +235,11 @@ function file_storage_can_access_filename(mysqli $conn, string $filename, int $r
         return true;
     }
 
+    // Legacy uploads remain public until they are explicitly enrolled in file_assets.
+    if (!file_storage_has_policy_record($conn, $safeName)) {
+        return true;
+    }
+
     if ($requesterBusinessId <= 0) {
         return false;
     }
@@ -261,4 +251,3 @@ function file_storage_can_access_filename(mysqli $conn, string $filename, int $r
 
     return in_array($requesterBusinessId, $owners, true);
 }
-
