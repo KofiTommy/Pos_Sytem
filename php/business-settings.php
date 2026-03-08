@@ -4,6 +4,7 @@ header('Content-Type: application/json');
 include 'admin-auth.php';
 include 'db-connection.php';
 include 'tenant-context.php';
+include 'file-storage.php';
 
 const DEFAULT_BUSINESS_NAME = 'CediTill';
 const DEFAULT_BUSINESS_EMAIL = 'info@ceditill.com';
@@ -189,6 +190,7 @@ function resolve_business_for_request(mysqli $conn, string $method): array {
 
 try {
     ensure_multitenant_schema($conn);
+    ensure_file_storage_policy_table($conn);
 
     if (function_exists('resolve_admin_api_method')) {
         $method = resolve_admin_api_method();
@@ -291,6 +293,7 @@ try {
         $uploadedLogo = handle_logo_upload('logo_file');
         if ($uploadedLogo !== null) {
             $logoFilename = $uploadedLogo;
+            register_file_asset_policy($conn, $businessId, $uploadedLogo, 'business_logo', FILE_STORAGE_VISIBILITY_TENANT_PUBLIC, intval($_SESSION['user_id'] ?? 0));
         }
 
         $stmt = $conn->prepare(

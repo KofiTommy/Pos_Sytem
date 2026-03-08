@@ -352,7 +352,7 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
                 }
                 const businessInfo = getBusinessInfo();
                 const safeLogo = sanitizeFilename(businessInfo.logo_filename || '');
-                const logoUrl = safeLogo ? new URL(`../../assets/images/${safeLogo}`, window.location.href).href : '';
+                const logoUrl = safeLogo ? new URL(`../../php/product-image.php?name=${encodeURIComponent(safeLogo)}`, window.location.href).href : '';
                 const logoBlock = logoUrl
                     ? `<p style="margin-bottom:6px;"><img src="${escapeHtml(logoUrl)}" alt="Logo" style="max-height:48px; max-width:180px;"></p>`
                     : '';

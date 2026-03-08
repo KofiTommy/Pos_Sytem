@@ -247,7 +247,7 @@
             }
             const safeName = sanitizeImageFilename(filename || '') || 'pexels-jonathan-nenemann-12114822.jpg';
             const key = String(versionKey || PRODUCT_IMAGE_CACHE_VERSION_LOCAL).trim();
-            const imagePath = `../assets/images/${encodeURIComponent(safeName)}`;
+            const imagePath = withTenantQuery(`../php/product-image.php?name=${encodeURIComponent(safeName)}`);
             if (!key) return imagePath;
             return `${imagePath}?v=${encodeURIComponent(key)}`;
         }
@@ -379,6 +379,32 @@
             }
         }
 
+        function resolvePaystackRedirectUrl(candidate) {
+            const raw = String(candidate || '').trim();
+            if (!raw) {
+                return '';
+            }
+
+            const allowedHosts = [
+                'checkout.paystack.com',
+                'standard.paystack.co'
+            ];
+
+            try {
+                const target = new URL(raw, window.location.href);
+                if (target.protocol !== 'https:') {
+                    return '';
+                }
+                const host = String(target.hostname || '').toLowerCase();
+                if (!allowedHosts.includes(host)) {
+                    return '';
+                }
+                return target.toString();
+            } catch (error) {
+                return '';
+            }
+        }
+
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', async function () {
             updateCartCount();
@@ -414,10 +440,11 @@
                         if (!data.success) {
                             throw new Error(data.message || 'Unable to start Mobile Money payment.');
                         }
-                        if (!data.authorization_url) {
-                            throw new Error('Payment gateway authorization URL is missing.');
+                        const safeGatewayRedirect = resolvePaystackRedirectUrl(data.authorization_url);
+                        if (!safeGatewayRedirect) {
+                            throw new Error('Payment gateway authorization URL is invalid.');
                         }
-                        window.location.href = data.authorization_url;
+                        window.location.href = safeGatewayRedirect;
                     })
                     .catch(error => {
                         console.error('Paystack init error:', error);

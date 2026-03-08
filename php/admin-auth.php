@@ -2,6 +2,7 @@
 include_once __DIR__ . '/session-bootstrap.php';
 secure_session_start();
 include_once __DIR__ . '/csrf.php';
+include_once __DIR__ . '/redirect-allowlist.php';
 
 function current_user_role() {
     $role = $_SESSION['role'] ?? '';
@@ -44,9 +45,19 @@ function is_admin_authenticated() {
     return isset($_SESSION['user_id']) && current_user_role() !== '' && current_business_id() > 0;
 }
 
+function admin_redirect_allowlist(): array {
+    return [
+        '../login.html',
+        '../pages/login.html',
+        'dashboard.php',
+        'pos.php'
+    ];
+}
+
 function require_admin_page($redirect_url = '../pages/login.html') {
     if (!is_admin_authenticated()) {
-        header('Location: ' . $redirect_url);
+        $target = redirect_resolve_allowlisted((string)$redirect_url, admin_redirect_allowlist(), '../login.html');
+        header('Location: ' . $target);
         exit();
     }
     csrf_issue_cookie();
@@ -107,7 +118,8 @@ function require_roles_page($roles, $redirect_url = '../pages/login.html') {
     $role = current_user_role();
     if (!in_array($role, $allowed, true)) {
         $fallback = $role === 'sales' ? 'pos.php' : 'dashboard.php';
-        header('Location: ' . $fallback);
+        $target = redirect_resolve_allowlisted($fallback, admin_redirect_allowlist(), 'dashboard.php');
+        header('Location: ' . $target);
         exit();
     }
 }

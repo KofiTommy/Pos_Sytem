@@ -2,6 +2,7 @@
 include_once __DIR__ . '/session-bootstrap.php';
 secure_session_start();
 include_once __DIR__ . '/csrf.php';
+include_once __DIR__ . '/redirect-allowlist.php';
 
 const HQ_SESSION_AUTH_KEY = 'hq_admin_authenticated';
 const HQ_SESSION_USER_KEY = 'hq_admin_username';
@@ -9,6 +10,14 @@ const HQ_SESSION_LOGIN_AT_KEY = 'hq_admin_login_at';
 const HQ_SESSION_LAST_SEEN_KEY = 'hq_admin_last_seen';
 const HQ_SESSION_UA_HASH_KEY = 'hq_admin_ua_hash';
 const HQ_DEFAULT_SESSION_IDLE_SECONDS = 1800;
+
+function hq_redirect_allowlist(): array {
+    return [
+        'login.php',
+        'dashboard.php',
+        '../pages/hq/login.php'
+    ];
+}
 
 function hq_env(string $key): string {
     $fromGetenv = getenv($key);
@@ -396,7 +405,8 @@ function hq_require_page(string $redirectUrl = 'login.php'): void {
     }
 
     if (!hq_is_authenticated()) {
-        header('Location: ' . $redirectUrl);
+        $target = redirect_resolve_allowlisted($redirectUrl, hq_redirect_allowlist(), 'login.php');
+        header('Location: ' . $target);
         exit();
     }
 

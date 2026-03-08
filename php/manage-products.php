@@ -4,6 +4,7 @@ include 'admin-auth.php';
 require_roles_api(['owner']);
 include 'db-connection.php';
 include 'tenant-context.php';
+include 'file-storage.php';
 include_once __DIR__ . '/compliance-tracking.php';
 
 function respond($success, $message = '', $extra = []) {
@@ -83,6 +84,7 @@ function handle_uploaded_image($fieldName) {
 
 try {
     ensure_multitenant_schema($conn);
+    ensure_file_storage_policy_table($conn);
     ensure_phase3_tracking_schema($conn);
     $businessId = current_business_id();
     if ($businessId <= 0) {
@@ -164,6 +166,7 @@ try {
         $uploadedImage = handle_uploaded_image('image_file');
         if ($uploadedImage !== null) {
             $image = $uploadedImage;
+            register_file_asset_policy($conn, $businessId, $uploadedImage, 'product_image', FILE_STORAGE_VISIBILITY_TENANT_PUBLIC, $actorUserId);
         } elseif ($image !== '') {
             $image = basename($image);
         }
@@ -269,6 +272,7 @@ try {
         $uploadedImage = handle_uploaded_image('image_file');
         if ($uploadedImage !== null) {
             $image = $uploadedImage;
+            register_file_asset_policy($conn, $businessId, $uploadedImage, 'product_image', FILE_STORAGE_VISIBILITY_TENANT_PUBLIC, $actorUserId);
         } elseif ($image !== '') {
             $image = basename($image);
         }

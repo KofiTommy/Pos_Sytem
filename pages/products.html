@@ -265,7 +265,7 @@
                 return resolveProductStaticImagePath(filename, versionKey || PRODUCT_IMAGE_CACHE_VERSION_LOCAL);
             }
             const safeName = sanitizeImageFilename(filename || '') || 'pexels-jonathan-nenemann-12114822.jpg';
-            return appendImageVersionLocal(`../assets/images/${encodeURIComponent(safeName)}`, versionKey);
+            return appendImageVersionLocal(withTenantQuery(`../php/product-image.php?name=${encodeURIComponent(safeName)}`), versionKey);
         }
 
         function buildProductsApiUrl(limit, offset) {

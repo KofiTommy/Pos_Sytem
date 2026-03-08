@@ -2,6 +2,7 @@
 include_once __DIR__ . '/session-bootstrap.php';
 secure_session_start();
 include_once __DIR__ . '/csrf.php';
+include_once __DIR__ . '/redirect-allowlist.php';
 header('Content-Type: application/json');
 
 const LOGIN_RATE_LIMIT_WINDOW_SECONDS = 900; // 15 minutes
@@ -239,13 +240,17 @@ try {
         ]);
     }
 
+    $redirectCandidate = $role === 'owner' ? '../pages/admin/dashboard.php' : '../pages/admin/pos.php';
+    $redirectAllowlist = ['../pages/admin/dashboard.php', '../pages/admin/pos.php'];
+    $safeRedirect = redirect_resolve_allowlisted($redirectCandidate, $redirectAllowlist, '../pages/admin/dashboard.php');
+
     echo json_encode([
         'success' => true,
         'message' => 'Login successful',
         'role' => $role,
         'business_code' => (string)($business['business_code'] ?? ''),
         'business_name' => (string)($business['business_name'] ?? ''),
-        'redirect' => $role === 'owner' ? '../pages/admin/dashboard.php' : '../pages/admin/pos.php'
+        'redirect' => $safeRedirect
     ]);
 } catch (Exception $e) {
     if (!empty($shouldRecordFailure) && isset($conn) && $conn instanceof mysqli && $attemptKey !== '') {

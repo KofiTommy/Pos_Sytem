@@ -1,6 +1,10 @@
 <?php
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: no-referrer');
+include_once __DIR__ . '/admin-auth.php';
+include_once __DIR__ . '/db-connection.php';
+include_once __DIR__ . '/tenant-context.php';
+include_once __DIR__ . '/file-storage.php';
 
 const PRODUCT_IMAGE_DEFAULT_FILE = 'pexels-jonathan-nenemann-12114822.jpg';
 const PRODUCT_IMAGE_ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'];
@@ -65,7 +69,7 @@ function resolve_existing_image_path(string $imagesDir, string $name): ?string {
     return null;
 }
 
-function output_image_file(string $path): void {
+function output_image_file(string $path, bool $allowPublicCache = true): void {
     $finfo = new finfo(FILEINFO_MIME_TYPE);
     $mime = strtolower((string)($finfo->file($path) ?: 'application/octet-stream'));
     $allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
@@ -74,7 +78,11 @@ function output_image_file(string $path): void {
     }
     $size = filesize($path);
 
-    header('Cache-Control: public, max-age=86400');
+    if ($allowPublicCache) {
+        header('Cache-Control: public, max-age=86400');
+    } else {
+        header('Cache-Control: private, no-store, max-age=0');
+    }
     header('Content-Type: ' . $mime);
     if ($size !== false) {
         header('Content-Length: ' . (string)$size);
@@ -90,13 +98,38 @@ try {
     }
 
     $requestedName = isset($_GET['name']) ? (string)$_GET['name'] : '';
+    $safeRequestedName = sanitize_image_name($requestedName);
+    $requesterBusinessId = 0;
+    if ($safeRequestedName !== '' && file_storage_is_managed_upload_filename($safeRequestedName)) {
+        ensure_multitenant_schema($conn);
+        ensure_file_storage_policy_table($conn);
+        $requesterBusinessId = file_storage_requester_business_id($conn);
+        if (!file_storage_can_access_filename($conn, $safeRequestedName, $requesterBusinessId)) {
+            http_response_code(403);
+            header('Cache-Control: no-store, max-age=0');
+            header('Content-Type: image/svg+xml; charset=UTF-8');
+            echo '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500"><rect width="800" height="500" fill="#eef4f3"/><g fill="#6b7280" font-family="Segoe UI, Arial, sans-serif" text-anchor="middle"><text x="400" y="240" font-size="34" font-weight="700">Image unavailable</text><text x="400" y="282" font-size="20">Please check back later</text></g></svg>';
+            exit();
+        }
+    }
+
     $defaultName = PRODUCT_IMAGE_DEFAULT_FILE;
     $candidates = image_path_candidates($imagesDir, $requestedName, $defaultName);
 
     foreach ($candidates as $candidateName) {
+        if (file_storage_is_managed_upload_filename($candidateName)) {
+            if ($requesterBusinessId <= 0) {
+                $requesterBusinessId = file_storage_requester_business_id($conn);
+            }
+            if (!file_storage_can_access_filename($conn, $candidateName, $requesterBusinessId)) {
+                continue;
+            }
+        }
+
         $resolved = resolve_existing_image_path($imagesDir, $candidateName);
         if ($resolved !== null) {
-            output_image_file($resolved);
+            $isManagedUpload = file_storage_is_managed_upload_filename($candidateName);
+            output_image_file($resolved, !$isManagedUpload);
         }
     }
 
@@ -112,5 +145,9 @@ try {
     header('Content-Type: image/svg+xml; charset=UTF-8');
     echo '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500"><rect width="800" height="500" fill="#fee2e2"/><g fill="#991b1b" font-family="Segoe UI, Arial, sans-serif" text-anchor="middle"><text x="400" y="240" font-size="30" font-weight="700">Unable to load image</text><text x="400" y="282" font-size="18">Please try again later</text></g></svg>';
     exit();
+} finally {
+    if (isset($conn) && $conn instanceof mysqli) {
+        $conn->close();
+    }
 }
 ?>

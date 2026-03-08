@@ -3,6 +3,14 @@ Options -Indexes
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
+    # Handle API CORS preflight requests before PHP scripts enforce method checks.
+    RewriteCond %{REQUEST_METHOD} =OPTIONS
+    RewriteRule ^(php/|b/[a-z0-9-]+/php/) - [R=204,L,NC]
+
+    # Route managed uploads through policy-aware resolver.
+    RewriteRule ^assets/images/((?:product|business-logo)-[a-z0-9._-]+\.(?:jpg|jpeg|png|gif|webp))$ php/product-image.php?name=$1 [L,QSA,NC]
+    RewriteRule ^b/([a-z0-9-]+)/assets/images/((?:product|business-logo)-[a-z0-9._-]+\.(?:jpg|jpeg|png|gif|webp))$ php/product-image.php?name=$2&tenant=$1 [L,QSA,NC]
+
     # Keep tenant landing URLs directory-style so relative links stay stable.
     RewriteRule ^b/([a-z0-9-]+)$ b/$1/ [R=302,L,NC]
 
@@ -11,6 +19,11 @@ Options -Indexes
 
     # Tenant-scoped pages/assets/api routes (single codebase, per-tenant context).
     RewriteRule ^b/([a-z0-9-]+)/(.+)$ $2?tenant=$1 [L,QSA,NC]
+</IfModule>
+
+<IfModule mod_setenvif.c>
+    # Allow browser CORS access only from production storefront origins.
+    SetEnvIfNoCase Origin "^https://(www\.)?ceditill\.com$" CORS_ORIGIN=$0
 </IfModule>
 
 <IfModule mod_deflate.c>
@@ -45,6 +58,14 @@ Options -Indexes
     Header always set Cross-Origin-Resource-Policy "same-site"
     Header always set Content-Security-Policy "default-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; font-src 'self' data: https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; img-src 'self' data: https:; connect-src 'self' https://api.paystack.co; object-src 'none'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
     Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains" "expr=%{HTTPS} == 'on'"
+    Header always merge Vary "Origin"
+
+    <FilesMatch "\.php$">
+        Header always set Access-Control-Allow-Origin "%{CORS_ORIGIN}e" env=CORS_ORIGIN
+        Header always set Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS" env=CORS_ORIGIN
+        Header always set Access-Control-Allow-Headers "Content-Type, X-Requested-With, X-CSRF-Token, X-XSRF-Token, X-HTTP-Method-Override, Authorization, X-Business-Code" env=CORS_ORIGIN
+        Header always set Access-Control-Max-Age "86400" env=CORS_ORIGIN
+    </FilesMatch>
 
     <FilesMatch "\.(css|js|png|jpg|jpeg|webp|svg|ico|woff|woff2)$">
         Header set Cache-Control "public, max-age=2592000, immutable"

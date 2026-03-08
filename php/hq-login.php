@@ -157,9 +157,11 @@ try {
     hq_clear_login_attempts($conn, $attemptKey, $clientIp);
     $shouldRecordFailure = false;
 
+    $safeRedirect = redirect_resolve_allowlisted('dashboard.php', hq_redirect_allowlist(), 'dashboard.php');
+
     respond(true, 'HQ login successful.', [
         'username' => hq_current_username(),
-        'redirect' => 'dashboard.php'
+        'redirect' => $safeRedirect
     ]);
 } catch (Exception $e) {
     if (!empty($shouldRecordFailure) && isset($conn) && $conn instanceof mysqli && $attemptKey !== '') {

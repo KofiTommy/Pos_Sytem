@@ -384,7 +384,7 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
                 return `
                     <div class="col-md-6 col-xl-4">
                         <div class="card h-100 product-card ${clickableClass}" data-product-id="${productId}" ${clickableAttrs}>
-                            <img src="../../assets/images/${safeImage}" class="card-img-top" alt="${safeName}">
+                            <img src="../../php/product-image.php?name=${encodeURIComponent(safeImage)}" class="card-img-top" alt="${safeName}">
                             <div class="card-body">
                                 <h6 class="card-title mb-1">${safeName}</h6>
                                 <p class="small text-muted mb-1">${safeCategory}</p>
@@ -588,7 +588,7 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
             const now = new Date();
             const businessInfo = getBusinessInfo();
             const safeLogo = sanitizeFilename(businessInfo.logo_filename || '');
-            const logoUrl = safeLogo ? new URL(`../../assets/images/${safeLogo}`, window.location.href).href : '';
+            const logoUrl = safeLogo ? new URL(`../../php/product-image.php?name=${encodeURIComponent(safeLogo)}`, window.location.href).href : '';
             const logoBlock = logoUrl
                 ? `<p style="margin-bottom:6px;"><img src="${escapeHtml(logoUrl)}" alt="Logo" style="max-height:48px; max-width:180px;"></p>`
                 : '';

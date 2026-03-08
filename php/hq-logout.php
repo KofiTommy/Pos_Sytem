@@ -13,5 +13,6 @@ if ($method === 'POST') {
     exit();
 }
 
-header('Location: ../pages/hq/login.php');
+$target = redirect_resolve_allowlisted('../pages/hq/login.php', hq_redirect_allowlist(), '../pages/hq/login.php');
+header('Location: ' . $target);
 exit();

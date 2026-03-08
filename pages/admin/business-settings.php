@@ -331,7 +331,7 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
 
             const safeLogo = sanitizeFilename(currentLogoFilename);
             if (safeLogo) {
-                preview.src = `../../assets/images/${safeLogo}`;
+                preview.src = `../../php/product-image.php?name=${encodeURIComponent(safeLogo)}`;
                 preview.classList.remove('d-none');
                 return;
             }

@@ -1,7 +1,8 @@
 <?php
 include_once __DIR__ . '/../../php/hq-auth.php';
 if (hq_is_authenticated()) {
-    header('Location: dashboard.php');
+    $target = redirect_resolve_allowlisted('dashboard.php', hq_redirect_allowlist(), 'dashboard.php');
+    header('Location: ' . $target);
     exit();
 }
 $hqEnabled = hq_is_enabled();
@@ -78,6 +79,28 @@ $hqIpAllowed = hq_ip_is_allowed();
             alertHost.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
         }
 
+        function resolveAllowlistedRedirect(candidate, fallback) {
+            const allowlist = ['dashboard.php'];
+            const fallbackUrl = new URL(fallback, window.location.href);
+            const normalizePath = (pathname) => String(pathname || '/')
+                .replace(/\/+/g, '/')
+                .replace(/\/$/, '')
+                .toLowerCase();
+            const allowedPaths = allowlist.map((item) => normalizePath(new URL(item, window.location.href).pathname));
+
+            try {
+                const targetUrl = new URL(String(candidate || ''), window.location.href);
+                const targetPath = normalizePath(targetUrl.pathname);
+                if (targetUrl.origin === window.location.origin && allowedPaths.includes(targetPath)) {
+                    return targetUrl.pathname + targetUrl.search + targetUrl.hash;
+                }
+            } catch (error) {
+                // Ignore invalid redirect candidate.
+            }
+
+            return fallbackUrl.pathname + fallbackUrl.search + fallbackUrl.hash;
+        }
+
         if (form) {
             form.addEventListener('submit', async (event) => {
                 event.preventDefault();
@@ -100,7 +123,8 @@ $hqIpAllowed = hq_ip_is_allowed();
                         throw new Error(data.message || 'Unable to log in.');
                     }
 
-                    window.location.href = data.redirect || 'dashboard.php';
+                    const safeRedirect = resolveAllowlistedRedirect(data.redirect, 'dashboard.php');
+                    window.location.href = safeRedirect;
                 } catch (error) {
                     showAlert(error.message || 'Unable to log in.');
                 } finally {

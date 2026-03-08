@@ -199,12 +199,12 @@ function appendImageVersion(url, versionKey = '') {
 
 function resolveProductStaticImagePath(filename, versionKey = '') {
     const safeName = sanitizeImageFilename(filename || '') || PRODUCT_DEFAULT_IMAGE_FILE;
-    return appendImageVersion(appPath(`assets/images/${encodeURIComponent(safeName)}`), versionKey);
+    return appendImageVersion(withTenantQuery(appPath(`php/product-image.php?name=${encodeURIComponent(safeName)}`)), versionKey);
 }
 
 function resolveProductResolverImagePath(filename, versionKey = '') {
     const safeName = sanitizeImageFilename(filename || '') || PRODUCT_DEFAULT_IMAGE_FILE;
-    return appendImageVersion(appPath(`php/product-image.php?name=${encodeURIComponent(safeName)}`), versionKey);
+    return appendImageVersion(withTenantQuery(appPath(`php/product-image.php?name=${encodeURIComponent(safeName)}`)), versionKey);
 }
 
 function applyProductImageFallback(img) {

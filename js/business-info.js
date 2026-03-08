@@ -140,15 +140,18 @@
         return 'php/business-settings.php';
     }
 
-    function resolveLogoBase() {
+    function resolveLogoUrl(filename) {
+        const safeName = sanitizeFilename(filename);
+        if (!safeName) return '';
+
         const path = window.location.pathname.toLowerCase();
         if (path.indexOf('/pages/admin/') !== -1) {
-            return '../../assets/images/';
+            return withTenant(`../../php/product-image.php?name=${encodeURIComponent(safeName)}`);
         }
         if (path.indexOf('/pages/') !== -1) {
-            return '../assets/images/';
+            return withTenant(`../php/product-image.php?name=${encodeURIComponent(safeName)}`);
         }
-        return 'assets/images/';
+        return withTenant(`php/product-image.php?name=${encodeURIComponent(safeName)}`);
     }
 
     function escapeHtml(value) {
@@ -229,7 +232,7 @@
         });
 
         const sanitizedLogo = sanitizeFilename(safeInfo.logo_filename);
-        const logoUrl = sanitizedLogo ? (resolveLogoBase() + sanitizedLogo) : '';
+        const logoUrl = sanitizedLogo ? resolveLogoUrl(sanitizedLogo) : '';
         document.querySelectorAll('[data-business-logo]').forEach((el) => {
             if (!logoUrl) {
                 el.classList.add('d-none');

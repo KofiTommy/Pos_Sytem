@@ -295,6 +295,41 @@
             }
         }
 
+        function normalizePath(pathname) {
+            return String(pathname || '/')
+                .replace(/\/+/g, '/')
+                .replace(/\/$/, '')
+                .toLowerCase();
+        }
+
+        function resolveAllowlistedRedirect(candidate, fallback) {
+            const allowlist = [
+                '../pages/admin/dashboard.php',
+                '../pages/admin/pos.php',
+                'admin/dashboard.php',
+                'admin/pos.php'
+            ];
+
+            const fallbackUrl = new URL(fallback, window.location.href);
+            const fallbackPath = normalizePath(fallbackUrl.pathname);
+            const allowedPaths = allowlist.map((item) => normalizePath(new URL(item, window.location.href).pathname));
+
+            try {
+                const targetUrl = new URL(String(candidate || ''), window.location.href);
+                const targetPath = normalizePath(targetUrl.pathname);
+                if (targetUrl.origin === window.location.origin && allowedPaths.includes(targetPath)) {
+                    return targetUrl.pathname + targetUrl.search + targetUrl.hash;
+                }
+            } catch (error) {
+                // Ignore invalid redirect candidate.
+            }
+
+            if (allowedPaths.includes(fallbackPath)) {
+                return fallbackUrl.pathname + fallbackUrl.search + fallbackUrl.hash;
+            }
+            return '../pages/admin/dashboard.php';
+        }
+
         function updateContextLinks(tenantCode) {
             const code = sanitizeTenantCode(tenantCode || '');
             document.getElementById('backHomeLink').href = withTenantQuery('../index.html', code);
@@ -377,7 +412,8 @@
 
                 showAlert('Login successful. Redirecting...', 'success');
                 setTimeout(() => {
-                    window.location.href = data.redirect || '../pages/admin/dashboard.php';
+                    const safeRedirect = resolveAllowlistedRedirect(data.redirect, '../pages/admin/dashboard.php');
+                    window.location.href = safeRedirect;
                 }, 700);
             } catch (error) {
                 showAlert(error.message || 'Login failed. Please try again.', 'danger');
