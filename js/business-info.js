@@ -97,7 +97,49 @@
         return '';
     }
 
+    function normalizeTenantPathname(pathname) {
+        return String(pathname || '')
+            .split('?')[0]
+            .split('#')[0]
+            .trim()
+            .toLowerCase();
+    }
+
+    function isAdminOrHqTenantPath(pathname) {
+        const path = normalizeTenantPathname(pathname);
+        return path.indexOf('/pages/admin/') !== -1 || path.indexOf('/pages/hq/') !== -1;
+    }
+
+    function isGenericStorefrontHomePath(pathname) {
+        const path = normalizeTenantPathname(pathname);
+        if (isAdminOrHqTenantPath(path) || path.indexOf('/pages/') !== -1) {
+            return false;
+        }
+
+        const trimmed = path.replace(/\/+$/, '');
+        if (trimmed === '') {
+            return true;
+        }
+
+        const lastSegment = trimmed.split('/').pop() || '';
+        if (lastSegment === 'index.html') {
+            return true;
+        }
+
+        return lastSegment !== '' && lastSegment.indexOf('.') === -1;
+    }
+
+    function canUseStoredTenantFallback(pathname) {
+        const path = normalizeTenantPathname(pathname);
+        if (isAdminOrHqTenantPath(path)) {
+            return false;
+        }
+        return !isGenericStorefrontHomePath(path);
+    }
+
     function detectTenantCode() {
+        const currentPath = window.location.pathname || '';
+
         try {
             const params = new URLSearchParams(window.location.search || '');
             const fromUrl = sanitizeTenantCode(params.get('tenant') || params.get('business_code') || '');
@@ -110,13 +152,33 @@
         }
 
         try {
-            const fromPath = detectTenantCodeFromPath(window.location.pathname || '');
+            const fromPath = detectTenantCodeFromPath(currentPath);
             if (fromPath) {
                 localStorage.setItem(TENANT_STORAGE_KEY, fromPath);
                 return fromPath;
             }
         } catch (error) {
             // Ignore pathname/storage errors.
+        }
+
+        try {
+            if (isGenericStorefrontHomePath(currentPath)) {
+                localStorage.removeItem(TENANT_STORAGE_KEY);
+                return '';
+            }
+        } catch (error) {
+            // Ignore pathname/storage errors.
+        }
+
+        try {
+            if (canUseStoredTenantFallback(currentPath)) {
+                const storedTenant = sanitizeTenantCode(localStorage.getItem(TENANT_STORAGE_KEY) || '');
+                if (storedTenant) {
+                    return storedTenant;
+                }
+            }
+        } catch (error) {
+            // Ignore storage errors.
         }
 
         return '';

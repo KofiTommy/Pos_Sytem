@@ -23,7 +23,49 @@ function detectTenantCodeFromPath(pathname) {
     return '';
 }
 
+function normalizeTenantPathname(pathname) {
+    return String(pathname || '')
+        .split('?')[0]
+        .split('#')[0]
+        .trim()
+        .toLowerCase();
+}
+
+function isAdminOrHqTenantPath(pathname) {
+    const path = normalizeTenantPathname(pathname);
+    return path.indexOf('/pages/admin/') !== -1 || path.indexOf('/pages/hq/') !== -1;
+}
+
+function isGenericStorefrontHomePath(pathname) {
+    const path = normalizeTenantPathname(pathname);
+    if (isAdminOrHqTenantPath(path) || path.indexOf('/pages/') !== -1) {
+        return false;
+    }
+
+    const trimmed = path.replace(/\/+$/, '');
+    if (trimmed === '') {
+        return true;
+    }
+
+    const lastSegment = trimmed.split('/').pop() || '';
+    if (lastSegment === 'index.html') {
+        return true;
+    }
+
+    return lastSegment !== '' && lastSegment.indexOf('.') === -1;
+}
+
+function canUseStoredTenantFallback(pathname) {
+    const path = normalizeTenantPathname(pathname);
+    if (isAdminOrHqTenantPath(path)) {
+        return false;
+    }
+    return !isGenericStorefrontHomePath(path);
+}
+
 function detectTenantCode() {
+    const currentPath = window.location.pathname || '';
+
     try {
         const params = new URLSearchParams(window.location.search || '');
         const fromUrl = sanitizeTenantCode(params.get('tenant') || params.get('business_code') || '');
@@ -36,7 +78,7 @@ function detectTenantCode() {
     }
 
     try {
-        const fromPath = detectTenantCodeFromPath(window.location.pathname || '');
+        const fromPath = detectTenantCodeFromPath(currentPath);
         if (fromPath) {
             localStorage.setItem(TENANT_STORAGE_KEY, fromPath);
             return fromPath;
@@ -45,7 +87,46 @@ function detectTenantCode() {
         // Ignore pathname parsing/storage issues.
     }
 
+    try {
+        // Opening the generic home should reset any stale storefront tenant context.
+        if (isGenericStorefrontHomePath(currentPath)) {
+            localStorage.removeItem(TENANT_STORAGE_KEY);
+            return '';
+        }
+    } catch (error) {
+        // Ignore pathname/storage issues.
+    }
+
+    try {
+        if (canUseStoredTenantFallback(currentPath)) {
+            const storedTenant = sanitizeTenantCode(localStorage.getItem(TENANT_STORAGE_KEY) || '');
+            if (storedTenant) {
+                return storedTenant;
+            }
+        }
+    } catch (error) {
+        // Ignore storage issues.
+    }
+
     return '';
+}
+
+function locationHasExplicitTenant() {
+    try {
+        const params = new URLSearchParams(window.location.search || '');
+        const fromUrl = sanitizeTenantCode(params.get('tenant') || params.get('business_code') || '');
+        if (fromUrl) {
+            return true;
+        }
+    } catch (error) {
+        // Ignore URL parsing issues.
+    }
+
+    try {
+        return detectTenantCodeFromPath(window.location.pathname || '') !== '';
+    } catch (error) {
+        return false;
+    }
 }
 
 const activeTenantCode = detectTenantCode();
@@ -53,6 +134,27 @@ const CART_STORAGE_KEY_PREFIX = 'cart';
 const LEGACY_CART_STORAGE_KEY = 'cart';
 const VISITOR_KEY_STORAGE_KEY = 'visitor_key';
 const VISITOR_TRACKED_PREFIX = 'visitor_tracked';
+
+function ensureCanonicalTenantLocation() {
+    if (!activeTenantCode) return;
+
+    const currentPath = window.location.pathname || '';
+    if (!canUseStoredTenantFallback(currentPath)) return;
+    if (locationHasExplicitTenant()) return;
+    if (typeof window.history?.replaceState !== 'function') return;
+
+    const currentUrl = `${window.location.pathname || ''}${window.location.search || ''}${window.location.hash || ''}`;
+    const canonicalUrl = withTenantQuery(currentUrl);
+    if (!canonicalUrl || canonicalUrl === currentUrl) return;
+
+    try {
+        window.history.replaceState(window.history.state, document.title, canonicalUrl);
+    } catch (error) {
+        // Ignore history API failures.
+    }
+}
+
+ensureCanonicalTenantLocation();
 
 function resolveCartStorageKey(tenantCode = activeTenantCode) {
     const safeTenantCode = sanitizeTenantCode(tenantCode || '');

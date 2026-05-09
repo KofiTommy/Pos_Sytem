@@ -244,7 +244,7 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="../../js/business-info.js"></script>
+    <script src="../../js/business-info.js?v=20260308-1"></script>
     <script src="../../js/admin-notifications.js"></script>
     <script src="../../js/api-client.js"></script>
     <script src="../../js/broadcast-notices.js?v=20260304-1"></script>
