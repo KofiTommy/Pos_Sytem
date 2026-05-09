@@ -28,9 +28,11 @@ try {
         $query = substr($query, 0, 80);
     }
 
-    $limit = intval($_GET['limit'] ?? 8);
+    $limitRaw = trim((string)($_GET['limit'] ?? '8'));
+    $requestAll = strtolower($limitRaw) === 'all';
+    $limit = intval($limitRaw);
     if ($limit < 1) $limit = 1;
-    if ($limit > 24) $limit = 24;
+    if ($limit > 200) $limit = 200;
 
     $results = [];
     $total = 0;
@@ -51,6 +53,8 @@ try {
         $countStmt->close();
         $total = intval($countRow['total'] ?? 0);
 
+        $effectiveLimit = $requestAll ? max($total, 0) : $limit;
+
         $searchStmt = $conn->prepare(
             "SELECT business_code, business_name
              FROM businesses
@@ -64,7 +68,7 @@ try {
                business_name ASC
              LIMIT ?"
         );
-        $searchStmt->bind_param('ssi', $like, $prefix, $limit);
+        $searchStmt->bind_param('ssi', $like, $prefix, $effectiveLimit);
         $searchStmt->execute();
         $searchResult = $searchStmt->get_result();
         while ($row = $searchResult->fetch_assoc()) {
@@ -85,6 +89,8 @@ try {
         $countStmt->close();
         $total = intval($countRow['total'] ?? 0);
 
+        $effectiveLimit = $requestAll ? max($total, 0) : $limit;
+
         $listStmt = $conn->prepare(
             "SELECT business_code, business_name
              FROM businesses
@@ -92,7 +98,7 @@ try {
              ORDER BY created_at DESC, id DESC
              LIMIT ?"
         );
-        $listStmt->bind_param('i', $limit);
+        $listStmt->bind_param('i', $effectiveLimit);
         $listStmt->execute();
         $listResult = $listStmt->get_result();
         while ($row = $listResult->fetch_assoc()) {

@@ -703,9 +703,10 @@ function renderBusinessDirectoryResults(host, results, total, query) {
         `;
     }).join('');
 
+    const totalCount = Number(total || list.length);
     const summaryLine = trimmedQuery
-        ? `<p class="text-muted small mb-2">Showing ${list.length} of ${Number(total || list.length).toLocaleString()} match(es)</p>`
-        : '';
+        ? `<p class="text-muted small mb-2">Showing ${list.length} of ${totalCount.toLocaleString()} match(es)</p>`
+        : `<p class="text-muted small mb-2">Scroll to browse all ${totalCount.toLocaleString()} active business(es).</p>`;
     host.innerHTML = `${summaryLine}${rows}`;
 }
 
@@ -719,7 +720,7 @@ async function loadBusinessDirectory(query = '') {
 
     try {
         const baseUrl = resolvePublicBusinessesPath();
-        const url = `${baseUrl}?limit=10${searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : ''}`;
+        const url = `${baseUrl}?limit=all${searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : ''}`;
         const response = await fetch(url, { cache: 'no-store' });
         if (!response.ok || requestId !== businessDirectoryRequestId) return;
 
