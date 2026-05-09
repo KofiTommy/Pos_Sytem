@@ -191,6 +191,7 @@ function resolve_business_for_request(mysqli $conn, string $method): array {
 try {
     ensure_multitenant_schema($conn);
     ensure_file_storage_policy_table($conn);
+    ensure_file_storage_backup_table($conn);
 
     if (function_exists('resolve_admin_api_method')) {
         $method = resolve_admin_api_method();
@@ -292,6 +293,16 @@ try {
         $logoFilename = $removeLogo ? '' : ($existing['logo_filename'] ?? '');
         $uploadedLogo = handle_logo_upload('logo_file');
         if ($uploadedLogo !== null) {
+            $uploadedLogoPath = file_storage_managed_asset_path($uploadedLogo);
+            if ($uploadedLogoPath === null) {
+                throw new Exception('Saved logo could not be located for backup.');
+            }
+            try {
+                file_storage_backup_asset_from_path($conn, $businessId, $uploadedLogo, $uploadedLogoPath, 'business_logo');
+            } catch (Exception $backupError) {
+                @unlink($uploadedLogoPath);
+                throw $backupError;
+            }
             $logoFilename = $uploadedLogo;
             register_file_asset_policy($conn, $businessId, $uploadedLogo, 'business_logo', FILE_STORAGE_VISIBILITY_TENANT_PUBLIC, intval($_SESSION['user_id'] ?? 0));
         }

@@ -85,6 +85,7 @@ function handle_uploaded_image($fieldName) {
 try {
     ensure_multitenant_schema($conn);
     ensure_file_storage_policy_table($conn);
+    ensure_file_storage_backup_table($conn);
     ensure_phase3_tracking_schema($conn);
     $businessId = current_business_id();
     if ($businessId <= 0) {
@@ -165,6 +166,16 @@ try {
 
         $uploadedImage = handle_uploaded_image('image_file');
         if ($uploadedImage !== null) {
+            $uploadedImagePath = file_storage_managed_asset_path($uploadedImage);
+            if ($uploadedImagePath === null) {
+                throw new Exception('Saved product image could not be located for backup.');
+            }
+            try {
+                file_storage_backup_asset_from_path($conn, $businessId, $uploadedImage, $uploadedImagePath, 'product_image');
+            } catch (Exception $backupError) {
+                @unlink($uploadedImagePath);
+                throw $backupError;
+            }
             $image = $uploadedImage;
             register_file_asset_policy($conn, $businessId, $uploadedImage, 'product_image', FILE_STORAGE_VISIBILITY_TENANT_PUBLIC, $actorUserId);
         } elseif ($image !== '') {
@@ -271,6 +282,16 @@ try {
 
         $uploadedImage = handle_uploaded_image('image_file');
         if ($uploadedImage !== null) {
+            $uploadedImagePath = file_storage_managed_asset_path($uploadedImage);
+            if ($uploadedImagePath === null) {
+                throw new Exception('Saved product image could not be located for backup.');
+            }
+            try {
+                file_storage_backup_asset_from_path($conn, $businessId, $uploadedImage, $uploadedImagePath, 'product_image');
+            } catch (Exception $backupError) {
+                @unlink($uploadedImagePath);
+                throw $backupError;
+            }
             $image = $uploadedImage;
             register_file_asset_policy($conn, $businessId, $uploadedImage, 'product_image', FILE_STORAGE_VISIBILITY_TENANT_PUBLIC, $actorUserId);
         } elseif ($image !== '') {
