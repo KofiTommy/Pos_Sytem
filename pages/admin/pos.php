@@ -202,6 +202,11 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
                             <input id="customerName" class="form-control" value="Walk-in Customer">
                         </div>
                         <div class="mb-2">
+                            <label class="form-label">Customer WhatsApp Number</label>
+                            <input id="customerPhone" class="form-control" type="tel" inputmode="tel" maxlength="40" placeholder="e.g. 024 123 4567">
+                            <div class="form-text">Optional, but needed to send the receipt on WhatsApp.</div>
+                        </div>
+                        <div class="mb-2">
                             <label class="form-label">Payment Method</label>
                             <select id="paymentMethod" class="form-select">
                                 <option value="cash">Cash</option>
@@ -307,6 +312,98 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
 
         function getBusinessInfo() {
             return Object.assign({}, defaultBusinessInfo, window.businessInfo || {});
+        }
+
+        function normalizeWhatsAppNumber(value) {
+            const digits = String(value || '').replace(/\D/g, '');
+            if (!digits) {
+                return '';
+            }
+            if (digits.startsWith('00') && digits.length > 2) {
+                return digits.slice(2);
+            }
+            if (digits.startsWith('233') && digits.length >= 12) {
+                return digits;
+            }
+            if (digits.length === 10 && digits.startsWith('0')) {
+                return '233' + digits.slice(1);
+            }
+            if (digits.length === 9) {
+                return '233' + digits;
+            }
+            if (digits.length >= 8 && digits.length <= 15) {
+                return digits;
+            }
+            return '';
+        }
+
+        function formatReceiptDate(value) {
+            if (!value) {
+                return new Date().toLocaleString();
+            }
+            const parsed = new Date(value);
+            if (Number.isNaN(parsed.getTime())) {
+                return String(value);
+            }
+            return parsed.toLocaleString();
+        }
+
+        function buildWhatsAppReceiptMessage(orderId, summary, createdAt = '') {
+            const businessInfo = getBusinessInfo();
+            const lines = [
+                `*${businessInfo.business_name}*`,
+                `Receipt #${orderId}`,
+                `Date: ${formatReceiptDate(createdAt)}`,
+                `Customer: ${summary.customer_name || 'Walk-in Customer'}`,
+                `Payment: ${summary.payment_method || 'cash'}`,
+                ''
+            ];
+            const items = Array.isArray(summary.items) ? summary.items : [];
+            if (items.length) {
+                lines.push('*Items*');
+                items.slice(0, 12).forEach((item) => {
+                    const quantity = Number(item.quantity || 0);
+                    const lineTotal = Number(item.line_total || (Number(item.price || 0) * quantity));
+                    lines.push(`- ${item.name || 'Item'} x${quantity} = ${asMoney(lineTotal)}`);
+                });
+                if (items.length > 12) {
+                    lines.push(`- ...and ${items.length - 12} more item(s)`);
+                }
+                lines.push('');
+            }
+            lines.push(`Subtotal: ${asMoney(summary.subtotal)}`);
+            if (Number(summary.discount || 0) > 0) {
+                lines.push(`Discount: ${asMoney(summary.discount)}`);
+            }
+            lines.push(`Tax: ${asMoney(summary.tax)}`);
+            lines.push(`Total: ${asMoney(summary.total)}`);
+            if (Number(summary.cash_received || 0) > 0) {
+                lines.push(`Cash Received: ${asMoney(summary.cash_received)}`);
+            }
+            if (Number(summary.change_due || 0) > 0) {
+                lines.push(`Change: ${asMoney(summary.change_due)}`);
+            }
+            if (businessInfo.contact_number) {
+                lines.push('');
+                lines.push(`Store Contact: ${businessInfo.contact_number}`);
+            }
+            lines.push('Thank you for shopping with us.');
+            return lines.join('\n');
+        }
+
+        function openWhatsAppReceipt(orderId, summary, createdAt = '') {
+            if (!summary) {
+                alert('No receipt data available for WhatsApp.');
+                return;
+            }
+            const normalizedPhone = normalizeWhatsAppNumber(summary.customer_phone || '');
+            if (!normalizedPhone) {
+                alert('Add a valid customer WhatsApp number to send this receipt.');
+                return;
+            }
+            const message = buildWhatsAppReceiptMessage(orderId, summary, createdAt);
+            const whatsappUrl = `https://wa.me/${normalizedPhone}?text=${encodeURIComponent(message)}`;
+            window.open(whatsappUrl, '_blank', 'noopener');
         }
 
         function getTotals() {
@@ -532,6 +629,7 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
             try {
                 const payload = {
                     customer_name: document.getElementById('customerName').value.trim(),
+                    customer_phone: document.getElementById('customerPhone').value.trim(),
                     payment_method: document.getElementById('paymentMethod').value,
                     cash_received: Number(document.getElementById('cashReceived').value || 0),
                     tax_rate: Number(document.getElementById('taxRate').value || 0),
@@ -555,6 +653,7 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
                     <div class="alert alert-success border-0 shadow-sm">
                         <h5 class="mb-2">Sale Completed (Order #${data.order_id})</h5>
                         <p class="mb-1">Customer: ${escapeHtml(summary.customer_name)}</p>
+                        <p class="mb-1">WhatsApp: ${summary.customer_phone ? escapeHtml(summary.customer_phone) : '<span class="text-muted">Not captured</span>'}</p>
                         <p class="mb-1">Payment: ${escapeHtml(summary.payment_method)}</p>
                         <p class="mb-1">Subtotal: ${asMoney(summary.subtotal)}</p>
                         <p class="mb-1">Discount: ${asMoney(summary.discount)}</p>
@@ -562,6 +661,7 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
                         <p class="mb-1"><strong>Total: ${asMoney(summary.total)}</strong></p>
                         <p class="mb-3">Change: ${asMoney(summary.change_due)}</p>
                         <button class="btn btn-sm btn-outline-success" onclick="printLatestReceipt()">Print Receipt</button>
+                        <button class="btn btn-sm btn-outline-success ms-2" onclick="sendLatestReceiptOnWhatsApp()">WhatsApp Receipt</button>
                         <a class="btn btn-sm btn-outline-primary ms-2" href="sales.php">View in Sales History</a>
                     </div>
                 `;
@@ -582,6 +682,14 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
                 return;
             }
             printReceipt(lastReceiptData.orderId, lastReceiptData.summary);
+        }
+
+        function sendLatestReceiptOnWhatsApp() {
+            if (!lastReceiptData) {
+                alert('No completed sale found to send.');
+                return;
+            }
+            openWhatsAppReceipt(lastReceiptData.orderId, lastReceiptData.summary);
         }
 
         function printReceipt(orderId, summary) {
@@ -633,6 +741,7 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
                         </div>
                         <hr>
                         <p><strong>Customer:</strong> ${escapeHtml(summary.customer_name)}</p>
+                        ${summary.customer_phone ? `<p><strong>WhatsApp:</strong> ${escapeHtml(summary.customer_phone)}</p>` : ''}
                         <p><strong>Payment:</strong> ${escapeHtml(summary.payment_method)}</p>
                         <table>
                             <thead>
