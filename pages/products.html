@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Products - Mother Care</title>
-    <link rel="icon" type="image/svg+xml" href="../assets/images/ceditill-favicon.svg">
+    <link rel="icon" type="image/png" href="../assets/images/ceditill-logo-favicon.png?v=1">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="../css/style.css">
@@ -16,6 +16,7 @@
     <nav class="navbar navbar-expand-lg navbar-light bg-light shadow-sm sticky-top">
         <div class="container">
             <a class="navbar-brand fw-bold" href="../index.html">
+                <span data-platform-brand-mark><img src="../assets/images/CediTill.png" class="platform-logo" alt="CediTill"></span>
                 <img data-business-logo class="d-none me-1" style="height: 30px; width: auto;" alt="Business logo">
                 <span data-business-name>Mother Care</span>
             </a>
@@ -58,8 +59,15 @@
     <!-- Page Header -->
     <div class="bg-light py-4">
         <div class="container">
-            <h1 class="mb-0"><i class="fas fa-shopping-bag"></i> Our Products</h1>
-            <p class="text-muted">Browse our complete collection of premium mother care products</p>
+            <h1 class="mb-0" id="productsPageHeading"><i class="fas fa-shopping-bag"></i> Our Products</h1>
+            <p class="text-muted" id="productsPageSubtitle">Browse our complete collection of premium mother care products</p>
+            <div id="platformBusinessSearch" class="d-none mt-3" style="max-width: 560px;">
+                <label for="businessCatalogSearch" class="form-label fw-semibold mb-1">Find a business</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fas fa-magnifying-glass"></i></span>
+                    <input type="search" id="businessCatalogSearch" class="form-control" placeholder="Search by business name..." autocomplete="off" maxlength="80">
+                </div>
+            </div>
         </div>
     </div>
 
@@ -67,7 +75,7 @@
     <div class="container py-5">
         <div class="row">
             <!-- Sidebar Filters -->
-            <div class="col-lg-3 mb-4">
+            <div class="col-lg-3 mb-4" id="productsSidebar">
                 <div class="card">
                     <div class="card-header bg-light">
                         <h5 class="mb-0"><i class="fas fa-filter"></i> Filters</h5>
@@ -114,7 +122,7 @@
             </div>
 
             <!-- Products Grid -->
-            <div class="col-lg-9">
+            <div class="col-lg-9" id="productsGridColumn">
                 <div id="productsContainer" class="row">
                     <!-- Products loaded via JavaScript -->
                     <div class="col-md-6 mb-4">
@@ -244,7 +252,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="../js/business-info.js?v=20260308-1"></script>
     <script src="../js/broadcast-notices.js?v=20260304-1"></script>
-    <script src="../js/scripts.js?v=20260308-2"></script>
+    <script src="../js/scripts.js?v=20260807-3"></script>
     <script>
         const LAZY_IMG_PLACEHOLDER = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
         const PRODUCT_IMAGE_CACHE_VERSION_LOCAL = '20260302-5';
@@ -253,6 +261,62 @@
         let hasMoreProducts = true;
         let loadingProducts = false;
         let productReviewsModal = null;
+
+        function isPlatformBusinessCatalog() {
+            const context = window.businessContext || {};
+            return !window.activeTenantCode
+                && Number(context.id || 0) === 0
+                && !String(context.business_code || '').trim();
+        }
+
+        let businessSearchTimer = null;
+
+        function renderPlatformBusinessCatalog(query = '') {
+            const container = document.getElementById('productsContainer');
+            const sidebar = document.getElementById('productsSidebar');
+            const gridColumn = document.getElementById('productsGridColumn');
+            const loadMoreBtn = document.getElementById('loadMoreBtn');
+            sidebar.classList.add('d-none');
+            gridColumn.classList.remove('col-lg-9');
+            gridColumn.classList.add('col-12');
+            loadMoreBtn.classList.add('d-none');
+            document.getElementById('platformBusinessSearch').classList.remove('d-none');
+            document.getElementById('productsPageHeading').innerHTML = '<i class="fas fa-store"></i> Explore Businesses';
+            document.getElementById('productsPageSubtitle').textContent = 'Choose a business to browse its products and offers.';
+            container.innerHTML = '<div class="col-12"><p class="text-center text-muted">Loading businesses...</p></div>';
+
+            const searchQuery = String(query || '').trim().substring(0, 80);
+            const catalogUrl = `../php/public-businesses.php?limit=all${searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : ''}`;
+            fetch(catalogUrl, { cache: 'no-store' })
+                .then((response) => response.json())
+                .then((data) => {
+                    const businesses = data && data.success && Array.isArray(data.results) ? data.results : [];
+                    if (!businesses.length) {
+                        container.innerHTML = `<div class="col-12"><p class="text-center text-muted">${searchQuery ? 'No businesses match your search.' : 'No businesses are available yet.'}</p></div>`;
+                        return;
+                    }
+                    container.innerHTML = businesses.map((business) => {
+                        const name = String(business.business_name || '').trim() || 'Business';
+                        const code = typeof sanitizeTenantCode === 'function' ? sanitizeTenantCode(business.business_code || '') : '';
+                        const storeUrl = code ? `../index.html?tenant=${encodeURIComponent(code)}` : '../index.html';
+                        return `
+                            <div class="col-12 col-sm-6 col-lg-4 col-xl-3 mb-4">
+                                <div class="card h-100 product-card">
+                                    <div class="card-body d-flex flex-column">
+                                        <div class="d-inline-flex align-items-center justify-content-center rounded-circle mb-3" style="width:56px;height:56px;background:rgba(15,118,110,0.12);color:#0f766e;"><i class="fas fa-store fa-lg"></i></div>
+                                        <h5 class="card-title mb-2">${escapeHtml(name)}</h5>
+                                        <p class="card-text text-muted mb-4">Browse products and offers from this business on CediTill.</p>
+                                        <a class="btn btn-primary btn-sm mt-auto" href="${escapeHtml(storeUrl)}"><i class="fas fa-arrow-up-right-from-square me-1"></i> Visit Store</a>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                })
+                .catch(() => {
+                    container.innerHTML = '<div class="col-12"><p class="text-center text-danger">Unable to load businesses right now.</p></div>';
+                });
+        }
 
         function appendImageVersionLocal(url, versionKey = '') {
             const key = String(versionKey || PRODUCT_IMAGE_CACHE_VERSION_LOCAL).trim();
@@ -606,7 +670,17 @@
             }
             productReviewsModal = new bootstrap.Modal(document.getElementById('productReviewsModal'));
             document.getElementById('productReviewForm').addEventListener('submit', submitProductReview);
-            loadProducts(true);
+            if (isPlatformBusinessCatalog()) {
+                renderPlatformBusinessCatalog();
+                document.getElementById('businessCatalogSearch').addEventListener('input', function () {
+                    window.clearTimeout(businessSearchTimer);
+                    businessSearchTimer = window.setTimeout(() => {
+                        renderPlatformBusinessCatalog(this.value);
+                    }, 260);
+                });
+            } else {
+                loadProducts(true);
+            }
             const loadMoreBtn = document.getElementById('loadMoreBtn');
             if (loadMoreBtn) {
                 loadMoreBtn.addEventListener('click', function () {

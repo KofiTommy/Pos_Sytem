@@ -2,9 +2,9 @@
     const TENANT_STORAGE_KEY = 'tenant_code';
     const DEFAULT_INFO = {
         business_name: 'CediTill',
-        business_email: 'info@ceditill.com',
+        business_email: 'appiahthomas97@gmail.com',
         contact_number: '+233 245 067 195',
-        business_location: '123 Mother Care Avenue, City Center',
+        business_location: '14 Menai Avenue, Bangor, Wales',
         logo_filename: '',
         theme_palette: 'default',
         hero_tagline: 'Universal POS tools to manage sales, inventory, and customers with confidence.',

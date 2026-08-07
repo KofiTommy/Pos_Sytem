@@ -10,9 +10,10 @@ $hqActionsEnabled = hq_actions_enabled();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HQ Dashboard - CediTill POS</title>
-    <link rel="icon" type="image/svg+xml" href="../../assets/images/ceditill-favicon.svg">
+    <link rel="icon" type="image/png" href="../../assets/images/ceditill-logo-favicon.png?v=1">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
+        .platform-logo { width: 142px; height: 32px; object-fit: cover; object-position: center 52%; border-radius: 5px; margin-right: 0.45rem; vertical-align: middle; }
         :root {
             --hq-bg: #f3f7fb;
             --hq-card: #ffffff;
@@ -100,7 +101,7 @@ $hqActionsEnabled = hq_actions_enabled();
 <body>
     <nav class="navbar navbar-expand-lg hq-nav sticky-top">
         <div class="container-fluid px-3 px-lg-4">
-            <span class="navbar-brand fw-bold mb-0">HQ Dashboard</span>
+            <span class="navbar-brand fw-bold mb-0"><img src="../../assets/images/CediTill.png" class="platform-logo" alt="CediTill">HQ Dashboard</span>
             <div class="ms-auto d-flex align-items-center gap-2">
                 <span class="badge <?php echo $hqActionsEnabled ? 'text-bg-success' : 'text-bg-secondary'; ?>">
                     Actions <?php echo $hqActionsEnabled ? 'Enabled' : 'Disabled'; ?>
@@ -1280,6 +1281,7 @@ $hqActionsEnabled = hq_actions_enabled();
                         <div class="d-flex flex-column gap-1">
                             <button class="btn btn-sm ${toggleClass}" data-action="toggle-status" data-business-id="${businessId}">${toggleLabel}</button>
                             <button class="btn btn-sm btn-outline-primary" data-action="owner-reset" data-business-id="${businessId}">Owner Reset Link</button>
+                            <button class="btn btn-sm btn-outline-danger" data-action="delete-business" data-business-id="${businessId}">Delete Business</button>
                         </div>
                     `;
                 }
@@ -1551,6 +1553,35 @@ $hqActionsEnabled = hq_actions_enabled();
                             expires_at: data.expires_at || ''
                         }
                     );
+                    await loadActionHistory();
+                    return;
+                }
+
+                if (action === 'delete-business') {
+                    const businessCode = String(row.business_code || '').trim();
+                    const requiredConfirmation = `DELETE ${businessCode}`;
+                    const confirmation = window.prompt(
+                        `This permanently deletes "${businessName}" and all of its products, orders, users, messages, uploads, and activity data.\n\nType ${requiredConfirmation} to continue.`,
+                        ''
+                    );
+                    if (confirmation === null) return;
+                    if (confirmation !== requiredConfirmation) {
+                        showControlResult(`Deletion cancelled. Type ${requiredConfirmation} exactly to confirm.`, 'warning');
+                        return;
+                    }
+
+                    button.disabled = true;
+                    const data = await runControlAction({
+                        action: 'delete_business',
+                        business_id: businessId,
+                        confirmation
+                    });
+                    if (!data) return;
+                    const recordsDeleted = Number(data.related_records_deleted || 0);
+                    const filesDeleted = Number(data.asset_files_deleted || 0);
+                    const fileNote = filesDeleted > 0 ? ` and ${filesDeleted} uploaded file(s)` : '';
+                    showControlResult(`${businessName} was permanently deleted (${recordsDeleted} related record(s)${fileNote} removed).`, 'success');
+                    await loadDashboard();
                     await loadActionHistory();
                     return;
                 }

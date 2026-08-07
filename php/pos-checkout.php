@@ -42,7 +42,7 @@ try {
     }
 
     $customerEmail = clean_text_input($payload['customer_email'] ?? 'pos@mothercare.local', 160);
-    $customerPhone = clean_text_input($payload['customer_phone'] ?? '', 40);
+    $customerPhone = clean_text_input($payload['customer_phone'] ?? 'N/A', 40);
     $notes = clean_text_input($payload['notes'] ?? '', 1000);
     $paymentMethod = strtolower(clean_text_input($payload['payment_method'] ?? 'cash', 40));
     $cashReceived = isset($payload['cash_received']) ? floatval($payload['cash_received']) : 0;
@@ -218,7 +218,6 @@ try {
             'order_id' => $orderId,
             'summary' => [
                 'customer_name' => $customerName,
-                'customer_phone' => $customerPhone,
                 'payment_method' => $paymentMethod,
                 'tax_rate' => $taxRate,
                 'subtotal' => $subtotal,

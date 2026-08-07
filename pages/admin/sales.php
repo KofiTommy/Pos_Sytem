@@ -19,7 +19,7 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sales History - Mother Care POS</title>
-    <link rel="icon" type="image/svg+xml" href="../../assets/images/ceditill-favicon.svg">
+    <link rel="icon" type="image/png" href="../../assets/images/ceditill-logo-favicon.png?v=1">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="../../css/style.css">
@@ -27,7 +27,7 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
 <body>
     <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom sticky-top">
         <div class="container">
-            <a class="navbar-brand fw-bold" href="<?php echo $isOwner ? 'dashboard.php' : 'pos.php'; ?>"><i class="fas fa-chart-line"></i> Sales History</a>
+            <a class="navbar-brand fw-bold" href="<?php echo $isOwner ? 'dashboard.php' : 'pos.php'; ?>"><img src="../../assets/images/CediTill.png" class="platform-logo" alt="CediTill"><i class="fas fa-chart-line"></i> Sales History</a>
             <div class="ms-auto d-flex gap-2 admin-actions">
                 <a href="pos.php" class="btn btn-primary btn-sm">New Sale</a>
                 <?php if ($isOwner): ?>
@@ -155,10 +155,6 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
                             <input type="text" id="editCustomerName" class="form-control" maxlength="200" required>
                         </div>
                         <div class="mb-3">
-                            <label for="editCustomerPhone" class="form-label">Customer WhatsApp Number</label>
-                            <input type="tel" id="editCustomerPhone" class="form-control" inputmode="tel" maxlength="40" placeholder="e.g. 024 123 4567">
-                        </div>
-                        <div class="mb-3">
                             <label for="editStatus" class="form-label">Status</label>
                             <select id="editStatus" class="form-select" required>
                                 <option value="pending">Pending</option>
@@ -190,7 +186,6 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
     <script src="../../js/broadcast-notices.js?v=20260304-1"></script>
     <script>
         let editSaleModal;
-        let lastOpenedSale = null;
         const canDeleteSales = <?php echo $isOwner ? 'true' : 'false'; ?>;
         const defaultBusinessInfo = {
             business_name: 'Mother Care',
@@ -218,91 +213,6 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
 
         function getBusinessInfo() {
             return Object.assign({}, defaultBusinessInfo, window.businessInfo || {});
-        }
-
-        function normalizeWhatsAppNumber(value) {
-            const digits = String(value || '').replace(/\D/g, '');
-            if (!digits) {
-                return '';
-            }
-            if (digits.startsWith('00') && digits.length > 2) {
-                return digits.slice(2);
-            }
-            if (digits.startsWith('233') && digits.length >= 12) {
-                return digits;
-            }
-            if (digits.length === 10 && digits.startsWith('0')) {
-                return '233' + digits.slice(1);
-            }
-            if (digits.length === 9) {
-                return '233' + digits;
-            }
-            if (digits.length >= 8 && digits.length <= 15) {
-                return digits;
-            }
-            return '';
-        }
-
-        function formatReceiptDate(value) {
-            if (!value) {
-                return new Date().toLocaleString();
-            }
-            const parsed = new Date(value);
-            if (Number.isNaN(parsed.getTime())) {
-                return String(value);
-            }
-            return parsed.toLocaleString();
-        }
-
-        function buildSaleWhatsAppReceiptMessage(order, items) {
-            const businessInfo = getBusinessInfo();
-            const lines = [
-                `*${businessInfo.business_name}*`,
-                `Receipt #${order.id || 0}`,
-                `Date: ${formatReceiptDate(order.created_at || '')}`,
-                `Customer: ${order.customer_name || 'Walk-in Customer'}`,
-                `Payment: ${order.payment_method || 'cash'}`,
-                ''
-            ];
-
-            const safeItems = Array.isArray(items) ? items : [];
-            if (safeItems.length) {
-                lines.push('*Items*');
-                safeItems.slice(0, 12).forEach((item) => {
-                    const quantity = Number(item.quantity || 0);
-                    const lineTotal = Number(item.price || 0) * quantity;
-                    lines.push(`- ${item.product_name || ('#' + item.product_id)} x${quantity} = ${asMoney(lineTotal)}`);
-                });
-                if (safeItems.length > 12) {
-                    lines.push(`- ...and ${safeItems.length - 12} more item(s)`);
-                }
-                lines.push('');
-            }
-
-            lines.push(`Subtotal: ${asMoney(order.subtotal)}`);
-            lines.push(`Tax: ${asMoney(order.tax)}`);
-            lines.push(`Total: ${asMoney(order.total)}`);
-            if (businessInfo.contact_number) {
-                lines.push('');
-                lines.push(`Store Contact: ${businessInfo.contact_number}`);
-            }
-            lines.push('Thank you for shopping with us.');
-            return lines.join('\n');
-        }
-
-        function sendSaleReceiptOnWhatsApp() {
-            if (!lastOpenedSale || !lastOpenedSale.order) {
-                alert('Open a sale first to send its receipt.');
-                return;
-            }
-            const normalizedPhone = normalizeWhatsAppNumber(lastOpenedSale.order.customer_phone || '');
-            if (!normalizedPhone) {
-                alert('Add a valid customer WhatsApp number before sending this receipt.');
-                return;
-            }
-            const message = buildSaleWhatsAppReceiptMessage(lastOpenedSale.order, lastOpenedSale.items || []);
-            const whatsappUrl = `https://wa.me/${normalizedPhone}?text=${encodeURIComponent(message)}`;
-            window.open(whatsappUrl, '_blank', 'noopener');
         }
 
         async function loadSales() {
@@ -378,7 +288,6 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
                 alert(data.message || 'Failed to load sale');
                 return;
             }
-            lastOpenedSale = data;
 
             const itemsHtml = data.items.map((item) => {
                 const safeName = escapeHtml(item.product_name || ('#' + item.product_id));
@@ -403,12 +312,10 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
             const safePaymentStatus = escapeHtml(data.order.payment_status || 'unpaid');
             const safePaymentRef = escapeHtml(data.order.payment_reference || '-');
             const safeCreatedAt = escapeHtml(data.order.created_at || '');
-            const safeCustomerPhone = escapeHtml(data.order.customer_phone || '');
 
             document.getElementById('saleDetailBody').innerHTML = `
                 <p><strong>Order #:</strong> ${safeOrderId}</p>
                 <p><strong>Customer:</strong> ${safeCustomer}</p>
-                <p><strong>WhatsApp:</strong> ${safeCustomerPhone || '<span class="text-muted">Not captured</span>'}</p>
                 <p><strong>Status:</strong> ${safeStatus}</p>
                 <p><strong>Staff:</strong> ${safeStaff}${safeStaffId > 0 ? ' (#' + safeStaffId + ')' : ''}</p>
                 <p><strong>Payment:</strong> ${safePaymentMethod} / ${safePaymentStatus}</p>
@@ -428,9 +335,6 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
                 <div class="mt-3 text-end">
                     <button class="btn btn-sm btn-outline-success" onclick="printSaleReceipt(${safeOrderId})">
                         <i class="fas fa-print"></i> Print Receipt
-                    </button>
-                    <button class="btn btn-sm btn-outline-success ms-2" onclick="sendSaleReceiptOnWhatsApp()">
-                        <i class="fab fa-whatsapp"></i> WhatsApp Receipt
                     </button>
                 </div>
             `;
@@ -489,15 +393,14 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
                                 ${logoBlock}
                                 <h2>${escapeHtml(businessInfo.business_name)}</h2>
                                 <p class="muted">Customer Receipt</p>
-                            <p class="muted">${escapeHtml(businessInfo.contact_number)} | ${escapeHtml(businessInfo.business_email)}</p>
-                            <p class="muted">Order #${receiptOrderId}</p>
-                            <p class="muted">${escapeHtml(data.order.created_at)}</p>
-                        </div>
-                        <hr>
-                        <p><strong>Customer:</strong> ${escapeHtml(data.order.customer_name)}</p>
-                        ${data.order.customer_phone ? `<p><strong>WhatsApp:</strong> ${escapeHtml(data.order.customer_phone)}</p>` : ''}
-                        <p><strong>Status:</strong> ${escapeHtml(data.order.status)}</p>
-                        <table>
+                                <p class="muted">${escapeHtml(businessInfo.contact_number)} | ${escapeHtml(businessInfo.business_email)}</p>
+                                <p class="muted">Order #${receiptOrderId}</p>
+                                <p class="muted">${escapeHtml(data.order.created_at)}</p>
+                            </div>
+                            <hr>
+                            <p><strong>Customer:</strong> ${escapeHtml(data.order.customer_name)}</p>
+                            <p><strong>Status:</strong> ${escapeHtml(data.order.status)}</p>
+                            <table>
                                 <thead>
                                     <tr><th>Item</th><th style="text-align:right;">Qty</th><th style="text-align:right;">Price</th><th style="text-align:right;">Amt</th></tr>
                                 </thead>
@@ -555,7 +458,6 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
 
             document.getElementById('editOrderId').value = data.order.id;
             document.getElementById('editCustomerName').value = data.order.customer_name || '';
-            document.getElementById('editCustomerPhone').value = data.order.customer_phone || '';
             document.getElementById('editStatus').value = data.order.status || 'paid';
             document.getElementById('editNotes').value = data.order.notes || '';
             editSaleModal.show();
@@ -567,7 +469,6 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
             const payload = {
                 order_id: Number(document.getElementById('editOrderId').value),
                 customer_name: document.getElementById('editCustomerName').value.trim(),
-                customer_phone: document.getElementById('editCustomerPhone').value.trim(),
                 status: document.getElementById('editStatus').value,
                 notes: document.getElementById('editNotes').value.trim()
             };

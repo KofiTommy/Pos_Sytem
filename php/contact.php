@@ -11,6 +11,43 @@ function respond($success, $message = '') {
     exit();
 }
 
+function forward_contact_to_formsubmit(array $contact): bool {
+    if (!function_exists('curl_init')) {
+        error_log('contact.php: FormSubmit notification skipped because cURL is unavailable.');
+        return false;
+    }
+
+    $payload = http_build_query([
+        'name' => $contact['name'],
+        'email' => $contact['email'],
+        'phone' => $contact['phone'],
+        'subject' => $contact['subject'],
+        'message' => $contact['message'],
+        '_subject' => 'New CediTill contact message',
+        '_template' => 'table'
+    ]);
+    $curl = curl_init('https://formsubmit.co/appiahthomas97@gmail.com');
+    curl_setopt_array($curl, [
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => $payload,
+        CURLOPT_HTTPHEADER => ['Content-Type: application/x-www-form-urlencoded'],
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_CONNECTTIMEOUT => 3,
+        CURLOPT_TIMEOUT => 5,
+        CURLOPT_FOLLOWLOCATION => false
+    ]);
+    curl_exec($curl);
+    $status = intval(curl_getinfo($curl, CURLINFO_RESPONSE_CODE));
+    $error = curl_error($curl);
+    curl_close($curl);
+
+    if ($status >= 200 && $status < 400) {
+        return true;
+    }
+    error_log('contact.php: FormSubmit notification failed. HTTP ' . $status . ($error !== '' ? ' - ' . $error : ''));
+    return false;
+}
+
 try {
     $business = tenant_require_business_context($conn, [], true);
     $businessId = intval($business['id'] ?? 0);
@@ -54,7 +91,15 @@ try {
     $stmt->execute();
     $stmt->close();
 
-    respond(true, 'Message sent successfully. We will get back to you soon.');
+    forward_contact_to_formsubmit([
+        'name' => $name,
+        'email' => $email,
+        'phone' => $phone,
+        'subject' => $subject,
+        'message' => $message
+    ]);
+
+    respond(true, 'Message received successfully. We will get back to you soon.');
 } catch (Exception $e) {
     error_log('contact.php: ' . $e->getMessage());
     respond(false, 'Unable to send your message right now. Please try again later.');

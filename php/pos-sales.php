@@ -61,7 +61,6 @@ try {
     if ($method === 'PUT') {
         $orderId = isset($body['order_id']) ? intval($body['order_id']) : 0;
         $customerName = isset($body['customer_name']) ? trim($body['customer_name']) : '';
-        $customerPhone = isset($body['customer_phone']) ? trim($body['customer_phone']) : '';
         $status = isset($body['status']) ? trim($body['status']) : '';
         $notes = isset($body['notes']) ? trim($body['notes']) : '';
 
@@ -74,9 +73,6 @@ try {
         if (strlen($customerName) > 200) {
             respond(false, 'Customer name is too long');
         }
-        if (strlen($customerPhone) > 40) {
-            respond(false, 'Customer phone is too long');
-        }
 
         $allowedStatuses = ['pending', 'paid', 'processing', 'completed', 'cancelled', 'refunded'];
         if (!in_array($status, $allowedStatuses, true)) {
@@ -84,7 +80,7 @@ try {
         }
 
         $currentStmt = $conn->prepare(
-            "SELECT id, customer_name, customer_phone, status, notes
+            "SELECT id, customer_name, status, notes
              FROM orders
              WHERE id = ? AND business_id = ?
              LIMIT 1"
@@ -97,8 +93,8 @@ try {
             respond(false, 'Sale not found');
         }
 
-        $stmt = $conn->prepare("UPDATE orders SET customer_name = ?, customer_phone = ?, status = ?, notes = ? WHERE id = ? AND business_id = ?");
-        $stmt->bind_param('ssssii', $customerName, $customerPhone, $status, $notes, $orderId, $businessId);
+        $stmt = $conn->prepare("UPDATE orders SET customer_name = ?, status = ?, notes = ? WHERE id = ? AND business_id = ?");
+        $stmt->bind_param('sssii', $customerName, $status, $notes, $orderId, $businessId);
         $stmt->execute();
         $stmt->close();
 
@@ -111,13 +107,11 @@ try {
             [
                 'before' => [
                     'customer_name' => (string)($current['customer_name'] ?? ''),
-                    'customer_phone' => (string)($current['customer_phone'] ?? ''),
                     'status' => (string)($current['status'] ?? ''),
                     'notes' => (string)($current['notes'] ?? '')
                 ],
                 'after' => [
                     'customer_name' => $customerName,
-                    'customer_phone' => $customerPhone,
                     'status' => $status,
                     'notes' => $notes
                 ]
@@ -242,7 +236,7 @@ try {
     $orderId = isset($_GET['order_id']) ? intval($_GET['order_id']) : 0;
 
     if ($orderId > 0) {
-        $orderStmt = $conn->prepare("SELECT id, customer_name, customer_email, customer_phone, subtotal, tax, shipping, total, status, payment_method, payment_status, payment_reference, staff_user_id, staff_username, notes, created_at
+        $orderStmt = $conn->prepare("SELECT id, customer_name, subtotal, tax, shipping, total, status, payment_method, payment_status, payment_reference, staff_user_id, staff_username, notes, created_at
                                      FROM orders
                                      WHERE id = ? AND business_id = ?");
         $orderStmt->bind_param('ii', $orderId, $businessId);

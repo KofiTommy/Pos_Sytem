@@ -4,6 +4,7 @@ include_once __DIR__ . '/hq-auth.php';
 hq_require_api();
 include __DIR__ . '/db-connection.php';
 include __DIR__ . '/tenant-context.php';
+include_once __DIR__ . '/file-storage.php';
 
 const HQ_OWNER_RESET_TTL_MINUTES = 30;
 
@@ -107,6 +108,87 @@ function hq_build_owner_reset_link(string $businessCode, string $token): string 
         return $scheme . '://' . $host . $path . '?' . $query;
     }
     return '../pages/forgot-password.html?' . $query;
+}
+
+function hq_business_asset_filenames(mysqli $conn, int $businessId): array {
+    if (!tenant_table_exists($conn, 'file_assets')) {
+        return [];
+    }
+
+    $stmt = $conn->prepare("SELECT filename FROM file_assets WHERE business_id = ?");
+    $stmt->bind_param('i', $businessId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $filenames = [];
+    while ($row = $result->fetch_assoc()) {
+        $filename = file_storage_sanitize_filename((string)($row['filename'] ?? ''));
+        if ($filename !== '' && file_storage_is_managed_upload_filename($filename)) {
+            $filenames[] = $filename;
+        }
+    }
+    $stmt->close();
+
+    return array_values(array_unique($filenames));
+}
+
+function hq_delete_business_records(mysqli $conn, int $businessId): array {
+    $stmt = $conn->prepare(
+        "SELECT DISTINCT TABLE_NAME
+         FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND COLUMN_NAME = 'business_id'
+           AND TABLE_NAME <> 'businesses'
+           AND TABLE_NAME <> 'hq_action_audit_log'
+         ORDER BY TABLE_NAME"
+    );
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $tables = [];
+    while ($row = $result->fetch_assoc()) {
+        $table = (string)($row['TABLE_NAME'] ?? '');
+        if (preg_match('/^[A-Za-z0-9_]+$/', $table) === 1) {
+            $tables[] = $table;
+        }
+    }
+    $stmt->close();
+
+    $deletedRecords = 0;
+    foreach ($tables as $table) {
+        $deleteStmt = $conn->prepare("DELETE FROM `{$table}` WHERE business_id = ?");
+        $deleteStmt->bind_param('i', $businessId);
+        $deleteStmt->execute();
+        $deletedRecords += $deleteStmt->affected_rows;
+        $deleteStmt->close();
+    }
+
+    $businessStmt = $conn->prepare("DELETE FROM businesses WHERE id = ?");
+    $businessStmt->bind_param('i', $businessId);
+    $businessStmt->execute();
+    $deletedBusiness = $businessStmt->affected_rows;
+    $businessStmt->close();
+
+    if ($deletedBusiness !== 1) {
+        throw new Exception('Business could not be deleted.', 500);
+    }
+
+    return ['related_records' => $deletedRecords];
+}
+
+function hq_remove_managed_asset_files(array $filenames): array {
+    $deleted = 0;
+    $failed = 0;
+    foreach ($filenames as $filename) {
+        $path = file_storage_managed_asset_path((string)$filename);
+        if ($path === null || !is_file($path)) {
+            continue;
+        }
+        if (@unlink($path)) {
+            $deleted++;
+        } else {
+            $failed++;
+        }
+    }
+    return ['deleted' => $deleted, 'failed' => $failed];
 }
 
 try {
@@ -284,6 +366,60 @@ try {
                 ],
                 'reset_link' => $resetLink,
                 'expires_at' => $expiresAt
+            ]);
+        } catch (Exception $inner) {
+            $conn->rollback();
+            throw $inner;
+        }
+    }
+
+    if ($action === 'delete_business') {
+        $confirmation = trim((string)($body['confirmation'] ?? ''));
+
+        $conn->begin_transaction();
+        try {
+            $business = hq_fetch_business_for_update($conn, $businessId);
+            if (!$business) {
+                throw new Exception('Business not found.', 404);
+            }
+
+            $defaultBusiness = tenant_fetch_default_business($conn);
+            if (intval($defaultBusiness['id'] ?? 0) === $businessId) {
+                throw new Exception('The default CediTill business cannot be deleted.', 422);
+            }
+
+            $expectedConfirmation = 'DELETE ' . (string)($business['business_code'] ?? '');
+            if ($confirmation !== $expectedConfirmation) {
+                throw new Exception('Type "' . $expectedConfirmation . '" to permanently delete this business.', 422);
+            }
+
+            $assetFilenames = hq_business_asset_filenames($conn, $businessId);
+            $deletion = hq_delete_business_records($conn, $businessId);
+            hq_action_log(
+                $conn,
+                $businessId,
+                (string)($business['business_code'] ?? ''),
+                'delete_business',
+                $performedBy,
+                [
+                    'business_name' => (string)($business['business_name'] ?? ''),
+                    'related_records_deleted' => intval($deletion['related_records'] ?? 0),
+                    'managed_asset_files_queued' => count($assetFilenames)
+                ]
+            );
+            $conn->commit();
+
+            $assetRemoval = hq_remove_managed_asset_files($assetFilenames);
+            respond(true, 'Business and its related data were permanently deleted.', [
+                'action' => $action,
+                'business' => [
+                    'id' => $businessId,
+                    'business_code' => (string)($business['business_code'] ?? ''),
+                    'business_name' => (string)($business['business_name'] ?? '')
+                ],
+                'related_records_deleted' => intval($deletion['related_records'] ?? 0),
+                'asset_files_deleted' => intval($assetRemoval['deleted'] ?? 0),
+                'asset_files_failed' => intval($assetRemoval['failed'] ?? 0)
             ]);
         } catch (Exception $inner) {
             $conn->rollback();

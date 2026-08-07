@@ -18,7 +18,7 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Business Info - CediTill POS</title>
-    <link rel="icon" type="image/svg+xml" href="../../assets/images/ceditill-favicon.svg">
+    <link rel="icon" type="image/png" href="../../assets/images/ceditill-logo-favicon.png?v=1">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="../../css/style.css">
@@ -26,7 +26,7 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
 <body>
     <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom sticky-top">
         <div class="container">
-            <a class="navbar-brand fw-bold" href="dashboard.php"><i class="fas fa-briefcase"></i> Business Info</a>
+            <a class="navbar-brand fw-bold" href="dashboard.php"><img src="../../assets/images/CediTill.png" class="platform-logo" alt="CediTill"><i class="fas fa-briefcase"></i> Business Info</a>
             <div class="ms-auto d-flex gap-2 admin-actions">
                 <a href="dashboard.php" class="btn btn-outline-info btn-sm">Dashboard</a>
                 <a href="manage-products.php" class="btn btn-outline-success btn-sm">Manage Products</a>
@@ -141,9 +141,9 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
                         <div class="text-center border rounded p-3 bg-light">
                             <img id="logoPreview" class="img-fluid mb-3 d-none" alt="Business logo preview" style="max-height: 90px;">
                             <h4 class="mb-1" id="namePreview">CediTill</h4>
-                            <p class="mb-1 text-muted" id="emailPreview">info@ceditill.com</p>
+                            <p class="mb-1 text-muted" id="emailPreview">appiahthomas97@gmail.com</p>
                             <p class="mb-0 text-muted" id="phonePreview">+233 000 000 000</p>
-                            <p class="mb-0 text-muted small" id="locationPreview">123 Mother Care Avenue, City Center</p>
+                            <p class="mb-0 text-muted small" id="locationPreview">14 Menai Avenue, Bangor, Wales</p>
                             <p class="mt-2 mb-1 small text-muted" id="heroPreview">Universal POS tools to manage sales, inventory, and customers with confidence.</p>
                             <p class="mb-0 small text-muted" id="footerPreview">CediTill helps businesses run faster checkout, smarter stock control, and clear daily sales insights.</p>
                             <span class="badge bg-secondary mt-2" id="palettePreview">Palette: default</span>
@@ -300,7 +300,7 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
             const name = document.getElementById('businessName').value.trim() || 'Business name';
             const email = document.getElementById('businessEmail').value.trim() || 'email@example.com';
             const phone = document.getElementById('contactNumber').value.trim() || 'Phone number';
-            const location = document.getElementById('businessLocation').value.trim() || '123 Mother Care Avenue, City Center';
+            const location = document.getElementById('businessLocation').value.trim() || '14 Menai Avenue, Bangor, Wales';
             const heroTagline = document.getElementById('heroTagline').value.trim() || 'Universal POS tools to manage sales, inventory, and customers with confidence.';
             const footerNote = document.getElementById('footerNote').value.trim() || 'CediTill helps businesses run faster checkout, smarter stock control, and clear daily sales insights.';
             const palette = document.getElementById('themePalette').value || 'default';

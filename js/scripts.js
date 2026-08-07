@@ -492,6 +492,20 @@ function updateFeaturedSectionTitle() {
     heading.textContent = isPlatformContext() ? 'Featured POS Solutions' : 'Featured Products';
 }
 
+function updateHeroMarketplaceLink() {
+    const link = document.querySelector('[data-platform-marketplace-link]');
+    if (!link) return;
+
+    if (isPlatformContext()) {
+        link.href = 'pages/products.html';
+        link.innerHTML = '<i class="fas fa-store"></i> Explore Businesses';
+        return;
+    }
+
+    link.href = 'pages/products.html';
+    link.innerHTML = '<i class="fas fa-store"></i> Explore Products';
+}
+
 function resolvePublicStatsPath() {
     const path = String(window.location.pathname || '').toLowerCase();
     if (path.indexOf('/pages/') !== -1) {
@@ -695,10 +709,9 @@ function renderBusinessDirectoryResults(host, results, total, query) {
             <div class="business-directory-item d-flex justify-content-between align-items-center gap-2">
                 <div>
                     <p class="business-directory-name mb-1">${escapeHtml(name)}</p>
+                    <p class="business-directory-meta">Shop this business on CediTill</p>
                 </div>
-                <a class="btn btn-sm btn-outline-success" href="${escapeHtml(storefrontUrl)}">
-                    <i class="fas fa-arrow-up-right-from-square"></i> Open Store
-                </a>
+                <a class="btn btn-sm btn-outline-success" href="${escapeHtml(storefrontUrl)}"><i class="fas fa-arrow-up-right-from-square"></i> Open Store</a>
             </div>
         `;
     }).join('');
@@ -706,8 +719,8 @@ function renderBusinessDirectoryResults(host, results, total, query) {
     const totalCount = Number(total || list.length);
     const summaryLine = trimmedQuery
         ? `<p class="text-muted small mb-2">Showing ${list.length} of ${totalCount.toLocaleString()} match(es)</p>`
-        : `<p class="text-muted small mb-2">Scroll to browse all ${totalCount.toLocaleString()} active business(es).</p>`;
-    host.innerHTML = `${summaryLine}${rows}`;
+        : `<p class="text-muted small mb-2">Showing ${list.length} of ${totalCount.toLocaleString()} active business(es).</p>`;
+    host.innerHTML = `<div class="business-directory-summary">${summaryLine}</div>${rows}`;
 }
 
 async function loadBusinessDirectory(query = '') {
@@ -720,7 +733,8 @@ async function loadBusinessDirectory(query = '') {
 
     try {
         const baseUrl = resolvePublicBusinessesPath();
-        const url = `${baseUrl}?limit=all${searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : ''}`;
+        const limit = searchQuery ? 'all' : '6';
+        const url = `${baseUrl}?limit=${limit}${searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : ''}`;
         const response = await fetch(url, { cache: 'no-store' });
         if (!response.ok || requestId !== businessDirectoryRequestId) return;
 
@@ -888,6 +902,35 @@ function renderDefaultFeaturedSolutions(container) {
     `).join('');
 }
 
+function renderPlatformBusinessCards(container, businesses) {
+    stopFeaturedProductsAutoScroll();
+    const list = Array.isArray(businesses) ? businesses : [];
+    if (!list.length) {
+        container.innerHTML = '<div class="col-12"><div class="alert alert-light border text-muted mb-0">No businesses are available yet.</div></div>';
+        return;
+    }
+
+    container.innerHTML = list.map((business) => {
+        const name = String(business.business_name || '').trim() || 'Business';
+        const code = sanitizeTenantCode(business.business_code || '');
+        const storeUrl = createStorefrontUrlFromCode(code);
+        return `
+            <div class="col-sm-6 col-lg-4 mb-4">
+                <div class="card h-100 product-card">
+                    <div class="card-body d-flex flex-column">
+                        <div class="d-inline-flex align-items-center justify-content-center rounded-circle mb-3" style="width:56px;height:56px;background:rgba(15,118,110,0.12);color:#0f766e;">
+                            <i class="fas fa-store fa-lg"></i>
+                        </div>
+                        <h5 class="card-title mb-2">${escapeHtml(name)}</h5>
+                        <p class="card-text text-muted mb-4">Browse products and offers from this business on CediTill.</p>
+                        <a class="btn btn-primary btn-sm mt-auto" href="${escapeHtml(storeUrl)}"><i class="fas fa-arrow-up-right-from-square me-1"></i> Visit Store</a>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
 function buildTenantFeaturedProductCard(product, wrapperClass = 'col-md-4 mb-4') {
     const productId = Number(product.id || 0);
     const productNameRaw = String(product.name || '');
@@ -1023,7 +1066,6 @@ function loadFeaturedProducts() {
     const featuredProductsDiv = document.getElementById('featuredProducts');
     if (!featuredProductsDiv) return;
 
-    const showDefaultSolutions = () => renderDefaultFeaturedSolutions(featuredProductsDiv);
     const hasTenantContext = !!activeTenantCode || hasTenantBusinessContext();
     const requestedMode = hasTenantContext ? 'tenant' : 'platform';
 
@@ -1034,7 +1076,7 @@ function loadFeaturedProducts() {
 
     if (!hasTenantContext) {
         featuredProductsDiv.dataset.loading = '0';
-        showDefaultSolutions();
+        renderDefaultFeaturedSolutions(featuredProductsDiv);
         return;
     }
 
@@ -1079,6 +1121,7 @@ document.addEventListener('DOMContentLoaded', function () {
     updateRegisterBusinessVisibility();
     updatePlatformOnlyVisibility();
     updateFeaturedSectionTitle();
+    updateHeroMarketplaceLink();
     loadPlatformBusinessCount();
     setupBusinessDirectorySearch();
     updateCartCount();
@@ -1091,6 +1134,7 @@ window.addEventListener('business-context:loaded', function () {
     updateRegisterBusinessVisibility();
     updatePlatformOnlyVisibility();
     updateFeaturedSectionTitle();
+    updateHeroMarketplaceLink();
     loadPlatformBusinessCount();
     setupBusinessDirectorySearch();
     loadFeaturedProducts();

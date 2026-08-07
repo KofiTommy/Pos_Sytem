@@ -3,13 +3,13 @@ include_once __DIR__ . '/session-bootstrap.php';
 secure_session_start();
 
 const MULTI_TENANT_DEFAULT_NAME = 'CediTill';
-const MULTI_TENANT_DEFAULT_EMAIL = 'info@ceditill.com';
+const MULTI_TENANT_DEFAULT_EMAIL = 'appiahthomas97@gmail.com';
 const MULTI_TENANT_DEFAULT_PHONE = '+233 000 000 000';
 const MULTI_TENANT_DEFAULT_PLAN = 'starter';
 const MULTI_TENANT_DEFAULT_THEME_PALETTE = 'default';
 const MULTI_TENANT_DEFAULT_HERO_TAGLINE = 'Universal POS tools to manage sales, inventory, and customers with confidence.';
 const MULTI_TENANT_DEFAULT_FOOTER_NOTE = 'CediTill helps businesses run faster checkout, smarter stock control, and clear daily sales insights.';
-const MULTI_TENANT_DEFAULT_LOCATION = '123 Mother Care Avenue, City Center';
+const MULTI_TENANT_DEFAULT_LOCATION = '14 Menai Avenue, Bangor, Wales';
 
 function run_tenant_schema_query(mysqli $conn, string $sql, array $ignoreCodes = [1060, 1061, 1091]): void {
     try {
@@ -422,7 +422,7 @@ function ensure_multitenant_schema(mysqli $conn): void {
         run_tenant_schema_query($conn, "ALTER TABLE business_settings ADD COLUMN theme_palette VARCHAR(30) NOT NULL DEFAULT 'default' AFTER logo_filename");
         run_tenant_schema_query($conn, "ALTER TABLE business_settings ADD COLUMN hero_tagline VARCHAR(320) NOT NULL DEFAULT 'Universal POS tools to manage sales, inventory, and customers with confidence.' AFTER theme_palette");
         run_tenant_schema_query($conn, "ALTER TABLE business_settings ADD COLUMN footer_note VARCHAR(320) NOT NULL DEFAULT 'CediTill helps businesses run faster checkout, smarter stock control, and clear daily sales insights.' AFTER hero_tagline");
-        run_tenant_schema_query($conn, "ALTER TABLE business_settings ADD COLUMN business_location VARCHAR(220) NOT NULL DEFAULT '123 Mother Care Avenue, City Center' AFTER footer_note");
+        run_tenant_schema_query($conn, "ALTER TABLE business_settings ADD COLUMN business_location VARCHAR(220) NOT NULL DEFAULT '14 Menai Avenue, Bangor, Wales' AFTER footer_note");
         run_tenant_schema_query($conn, "ALTER TABLE business_settings ADD UNIQUE KEY uk_business_settings_business_id (business_id)");
         $updateStmt = $conn->prepare(
             "UPDATE business_settings

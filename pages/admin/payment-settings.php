@@ -18,7 +18,7 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Payment Settings - Mother Care POS</title>
-    <link rel="icon" type="image/svg+xml" href="../../assets/images/ceditill-favicon.svg">
+    <link rel="icon" type="image/png" href="../../assets/images/ceditill-logo-favicon.png?v=1">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="../../css/style.css">
@@ -26,7 +26,7 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
 <body>
     <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom sticky-top">
         <div class="container">
-            <a class="navbar-brand fw-bold" href="dashboard.php"><i class="fas fa-shield-alt"></i> Payment Settings</a>
+            <a class="navbar-brand fw-bold" href="dashboard.php"><img src="../../assets/images/CediTill.png" class="platform-logo" alt="CediTill"><i class="fas fa-shield-alt"></i> Payment Settings</a>
             <div class="ms-auto d-flex gap-2 admin-actions">
                 <a href="dashboard.php" class="btn btn-outline-info btn-sm">Dashboard</a>
                 <a href="pos.php" class="btn btn-outline-primary btn-sm">POS</a>

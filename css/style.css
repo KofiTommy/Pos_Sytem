@@ -47,6 +47,22 @@ body {
         var(--mc-bg);
 }
 
+/* A restrained platform watermark, kept behind all interactive application content. */
+body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background: url("../assets/images/CediTill.png") center / min(62vw, 760px) auto no-repeat;
+    opacity: 0.045;
+}
+
+body > :not(script) {
+    position: relative;
+    z-index: 1;
+}
+
 /* Typography + links */
 h1,
 h2,
@@ -92,6 +108,22 @@ a:hover {
 
 .navbar-brand i {
     margin-right: 0.35rem;
+}
+
+/* Platform wordmark. Tenant storefronts hide this when a business uploads its own logo. */
+.platform-logo {
+    width: 152px;
+    height: 34px;
+    object-fit: cover;
+    object-position: center 52%;
+    vertical-align: middle;
+    border-radius: 5px;
+    margin-right: 0.45rem;
+}
+
+.navbar-brand .platform-logo {
+    width: 142px;
+    height: 32px;
 }
 
 .navbar .nav-link {
@@ -359,6 +391,26 @@ footer.footer-luxe::before {
     letter-spacing: 0.2px;
     margin-bottom: 0.8rem;
     color: #fff;
+}
+
+.developer-credit {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: #d6deeb;
+    text-decoration: none;
+    transition: color 0.2s ease, opacity 0.2s ease;
+}
+
+.developer-credit:hover {
+    color: #ffffff;
+}
+
+.developer-credit img {
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
+    border-radius: 50%;
 }
 
 .footer-links a {
