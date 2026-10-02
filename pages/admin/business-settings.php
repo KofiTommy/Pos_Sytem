@@ -91,6 +91,11 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
                                 <div class="form-text">Shown on storefront contact page.</div>
                             </div>
                             <div class="mb-3">
+                                <label for="deliveryFee" class="form-label">Delivery Fee (GHS)</label>
+                                <input type="number" id="deliveryFee" class="form-control" min="0" max="99999999.99" step="0.01" required>
+                                <div class="form-text">Applies to new orders in this store. Enter 0 for free delivery. Pending paid checkouts keep their original fee.</div>
+                            </div>
+                            <div class="mb-3">
                                 <label for="heroTagline" class="form-label">Welcome Tagline</label>
                                 <textarea id="heroTagline" class="form-control" rows="2" maxlength="320"></textarea>
                                 <div class="form-text">Shown under "Welcome to" on the home page.</div>
@@ -348,6 +353,7 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
             }
 
             document.getElementById('businessName').value = data.settings.business_name || '';
+            document.getElementById('deliveryFee').value = Number(data.settings.delivery_fee ?? 5).toFixed(2);
             document.getElementById('businessEmail').value = data.settings.business_email || '';
             document.getElementById('contactNumber').value = data.settings.contact_number || '';
             document.getElementById('businessLocation').value = data.settings.business_location || '';
@@ -371,6 +377,7 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
             try {
                 const payload = new FormData();
                 payload.append('_method', 'PUT');
+                payload.append('delivery_fee', document.getElementById('deliveryFee').value);
                 payload.append('business_name', document.getElementById('businessName').value.trim());
                 payload.append('business_email', document.getElementById('businessEmail').value.trim());
                 payload.append('contact_number', document.getElementById('contactNumber').value.trim());

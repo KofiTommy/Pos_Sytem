@@ -5,6 +5,7 @@ include 'admin-auth.php';
 include 'db-connection.php';
 include 'tenant-context.php';
 include 'file-storage.php';
+include_once __DIR__ . '/delivery-fee.php';
 
 const DEFAULT_BUSINESS_NAME = 'CediTill';
 const DEFAULT_BUSINESS_EMAIL = 'appiahthomas97@gmail.com';
@@ -48,7 +49,8 @@ function default_settings_for_business(array $business = []) {
         'hero_tagline' => DEFAULT_HERO_TAGLINE,
         'footer_note' => DEFAULT_FOOTER_NOTE,
         'business_location' => DEFAULT_BUSINESS_LOCATION,
-        'updated_at' => null
+        'updated_at' => null,
+        'delivery_fee' => 5.0
     ];
 }
 
@@ -121,7 +123,7 @@ function handle_logo_upload($fieldName) {
 
 function load_settings(mysqli $conn, int $businessId, array $business = []) {
     $stmt = $conn->prepare(
-        "SELECT business_name, business_email, contact_number, logo_filename, theme_palette, hero_tagline, footer_note, business_location, updated_at
+        "SELECT business_name, business_email, contact_number, logo_filename, theme_palette, hero_tagline, footer_note, business_location, delivery_fee, updated_at
          FROM business_settings
          WHERE business_id = ?
          LIMIT 1"
@@ -145,7 +147,8 @@ function load_settings(mysqli $conn, int $businessId, array $business = []) {
         'hero_tagline' => trim((string)($row['hero_tagline'] ?? $defaults['hero_tagline'])) ?: $defaults['hero_tagline'],
         'footer_note' => trim((string)($row['footer_note'] ?? $defaults['footer_note'])) ?: $defaults['footer_note'],
         'business_location' => trim((string)($row['business_location'] ?? $defaults['business_location'])) ?: $defaults['business_location'],
-        'updated_at' => $row['updated_at'] ?? null
+        'updated_at' => $row['updated_at'] ?? null,
+        'delivery_fee' => (float)($row['delivery_fee'] ?? 5.0)
     ];
 }
 
@@ -190,6 +193,7 @@ function resolve_business_for_request(mysqli $conn, string $method): array {
 
 try {
     ensure_multitenant_schema($conn);
+    ensure_delivery_fee_schema($conn);
     ensure_file_storage_policy_table($conn);
     ensure_file_storage_backup_table($conn);
 
@@ -243,6 +247,11 @@ try {
         }
 
         $existing = load_settings($conn, $businessId, $business);
+        try {
+            $deliveryFee = validate_delivery_fee($data['delivery_fee'] ?? $existing['delivery_fee']);
+        } catch (InvalidArgumentException $e) {
+            respond(false, $e->getMessage());
+        }
 
         $businessName = trim($data['business_name'] ?? '');
         $businessEmail = trim($data['business_email'] ?? '');
@@ -309,10 +318,10 @@ try {
 
         $stmt = $conn->prepare(
             "UPDATE business_settings
-             SET business_name = ?, business_email = ?, contact_number = ?, logo_filename = ?, theme_palette = ?, hero_tagline = ?, footer_note = ?, business_location = ?
+             SET business_name = ?, business_email = ?, contact_number = ?, logo_filename = ?, theme_palette = ?, hero_tagline = ?, footer_note = ?, business_location = ?, delivery_fee = ?
              WHERE business_id = ?"
         );
-        $stmt->bind_param('ssssssssi', $businessName, $businessEmail, $contactNumber, $logoFilename, $themePalette, $heroTagline, $footerNote, $businessLocation, $businessId);
+        $stmt->bind_param('ssssssssdi', $businessName, $businessEmail, $contactNumber, $logoFilename, $themePalette, $heroTagline, $footerNote, $businessLocation, $deliveryFee, $businessId);
         $stmt->execute();
         $stmt->close();
 

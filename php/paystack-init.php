@@ -3,6 +3,7 @@ header('Content-Type: application/json');
 include 'db-connection.php';
 include 'payment-schema.php';
 include 'tenant-context.php';
+include_once __DIR__ . '/delivery-fee.php';
 include 'paystack-service.php';
 
 function respond($success, $message = '', $extra = []) {
@@ -111,7 +112,8 @@ try {
     $productStmt->close();
 
     $tax = 0.0;
-    $shipping = $subtotal > 0 ? 5.0 : 0.0;
+    ensure_delivery_fee_schema($conn);
+    $shipping = $subtotal > 0 ? business_delivery_fee($conn, $businessId) : 0.0;
     $total = round($subtotal + $tax + $shipping, 2);
     $reference = paystack_generate_reference();
     $cartJson = json_encode($validatedItems);

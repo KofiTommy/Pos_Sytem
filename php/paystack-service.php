@@ -435,7 +435,7 @@ function finalize_paystack_intent(mysqli $conn, string $reference, array $verifi
         $productStmt->close();
 
         $tax = 0.0;
-        $shipping = $subtotal > 0 ? 5.0 : 0.0;
+        $shipping = round(floatval($intent['shipping'] ?? 0), 2);
         $total = round($subtotal + $tax + $shipping, 2);
 
         $intentSubtotal = round(floatval($intent['subtotal'] ?? 0), 2);

@@ -338,6 +338,9 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
                         <a href="manage-products.php" class="btn btn-outline-light">
                             <i class="fas fa-boxes"></i> Products
                         </a>
+                        <a href="business-settings.php" class="btn btn-light mt-2" title="Manage business details and delivery fee">
+                            <i class="fas fa-gear" aria-hidden="true"></i> Business Settings
+                        </a>
                     </div>
                 </div>
             </div>

@@ -5,6 +5,7 @@ header('Content-Type: application/json');
 include 'db-connection.php';
 include 'payment-schema.php';
 include 'tenant-context.php';
+include_once __DIR__ . '/delivery-fee.php';
 include_once __DIR__ . '/compliance-tracking.php';
 
 function clean_text_input($value, $maxLen = 255) {
@@ -39,6 +40,8 @@ try {
         $allowDefaultBusiness
     );
     $businessId = intval($business['id'] ?? 0);
+    ensure_delivery_fee_schema($conn);
+    $deliveryFee = business_delivery_fee($conn, $businessId);
     if ($businessId <= 0) {
         throw new Exception('Invalid business context');
     }
@@ -135,7 +138,7 @@ try {
         $productStmt->close();
 
         $tax = 0.0;
-        $shipping = $subtotal > 0 ? 5.0 : 0.0;
+        $shipping = $subtotal > 0 ? $deliveryFee : 0.0;
         $final_total = round($subtotal + $tax + $shipping, 2);
 
         // Insert order
