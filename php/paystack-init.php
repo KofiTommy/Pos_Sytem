@@ -76,12 +76,17 @@ try {
     $productStmt = $conn->prepare("SELECT id, name, price, stock FROM products WHERE id = ? AND business_id = ?");
     $validatedItems = [];
     $subtotal = 0.0;
+    $seenProducts = [];
     foreach ($cart as $item) {
         $productId = isset($item['id']) ? intval($item['id']) : 0;
         $quantity = isset($item['quantity']) ? intval($item['quantity']) : 0;
         if ($productId <= 0 || $quantity <= 0) {
             throw new Exception('Invalid cart item.');
         }
+        if (isset($seenProducts[$productId])) {
+            throw new Exception('Duplicate cart product. Please refresh your cart.');
+        }
+        $seenProducts[$productId] = true;
 
         $productStmt->bind_param('ii', $productId, $businessId);
         $productStmt->execute();
@@ -149,11 +154,18 @@ try {
             'currency' => 'GHS',
             'reference' => $reference,
             'callback_url' => paystack_callback_url((string)($business['business_code'] ?? '')),
-            'channels' => ['mobile_money'],
+            'channels' => ['card', 'mobile_money'],
             'metadata' => [
                     'intent_id' => $intentId,
                     'business_id' => $businessId,
-                    'customer_name' => $customerName
+                    'customer_name' => $customerName,
+                    'mobile' => $customerPhone,
+                    'cancel_action' => paystack_callback_url((string)($business['business_code'] ?? '')) . '&payment_cancel=1',
+                    'custom_fields' => [
+                        ['display_name' => 'Store', 'variable_name' => 'store', 'value' => (string)($business['business_name'] ?? 'Luxe Haven')],
+                        ['display_name' => 'Customer', 'variable_name' => 'customer', 'value' => $customerName],
+                        ['display_name' => 'Phone', 'variable_name' => 'phone', 'value' => $customerPhone]
+                    ]
                 ]
             ];
         $gatewayResp = paystack_api_request('POST', '/transaction/initialize', $gatewayPayload, $conn, $businessId);

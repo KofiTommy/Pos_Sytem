@@ -117,6 +117,21 @@ try {
         if ($secretKey !== '' && strlen($secretKey) > 200) {
             respond(false, 'Secret key is too long.');
         }
+        $prefix = $useSandbox ? 'test' : 'live';
+        $saved = load_paystack_settings($conn, $businessId);
+        $effectiveSecret = $secretKey;
+        if ($effectiveSecret === '' && !empty($saved['secret_key_ciphertext'])) {
+            $effectiveSecret = decrypt_payment_secret((string)$saved['secret_key_ciphertext'], (string)$saved['secret_key_iv']);
+        }
+        if ($publicKey !== '' && strpos($publicKey, 'pk_' . $prefix . '_') !== 0) {
+            respond(false, 'Public key must match the selected test or live mode.');
+        }
+        if ($effectiveSecret !== '' && strpos($effectiveSecret, 'sk_' . $prefix . '_') !== 0) {
+            respond(false, 'Secret key must match the selected test or live mode.');
+        }
+        if ($enabled && ($publicKey === '' || $effectiveSecret === '')) {
+            respond(false, 'Enter both Paystack keys before enabling checkout.');
+        }
 
         $ciphertext = null;
         $iv = null;

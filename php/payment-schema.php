@@ -9,6 +9,7 @@ function ensure_payment_schema(mysqli $conn): void {
     $conn->query(
         "CREATE TABLE IF NOT EXISTS payment_intents (
             id INT AUTO_INCREMENT PRIMARY KEY,
+            business_id INT NOT NULL,
             reference VARCHAR(120) NOT NULL UNIQUE,
             customer_name VARCHAR(200) NOT NULL,
             customer_email VARCHAR(160) NOT NULL,

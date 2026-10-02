@@ -87,16 +87,16 @@ try {
     $verifyData = is_array($verifyResponse['data'] ?? null) ? $verifyResponse['data'] : [];
     $gatewayStatus = strtolower((string)($verifyData['status'] ?? ''));
     if ($gatewayStatus !== 'success') {
-        $failedStatus = 'failed';
+        $failedStatus = in_array($gatewayStatus, ['failed', 'abandoned', 'reversed'], true) ? $gatewayStatus : 'pending';
         $respJson = json_encode($verifyResponse);
         $updateStmt = $conn->prepare("UPDATE payment_intents SET status = ?, gateway_response = ? WHERE reference = ? AND business_id = ?");
         $updateStmt->bind_param('sssi', $failedStatus, $respJson, $reference, $businessId);
         $updateStmt->execute();
         $updateStmt->close();
-        throw new Exception('Payment has not been completed yet.');
+        respond(false, 'Payment is not confirmed yet. Keep reference ' . $reference . ' and refresh this page to check again.', ['payment_status' => $failedStatus, 'reference' => $reference]);
     }
 
-    $result = finalize_paystack_intent($conn, $reference, $verifyData);
+    $result = finalize_paystack_intent($conn, $reference, $verifyData, $businessId);
     respond(true, 'Payment verified successfully.', [
         'order_id' => intval($result['order_id'] ?? 0),
         'reference' => $reference,

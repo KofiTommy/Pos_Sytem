@@ -2,7 +2,11 @@
 include_once __DIR__ . '/compliance-tracking.php';
 
 function payment_settings_crypto_key(): string {
-    return trim((string)getenv('PAYMENT_SETTINGS_KEY'));
+    $key = trim((string)getenv('PAYMENT_SETTINGS_KEY'));
+    if ($key !== '') return $key;
+    $path = __DIR__ . '/payment-config.local.php';
+    $config = is_file($path) ? require $path : [];
+    return is_array($config) ? trim((string)($config['encryption_key'] ?? '')) : '';
 }
 
 function encrypt_payment_secret(string $plainText): array {
@@ -340,7 +344,7 @@ function append_payment_note(string $notes, string $reference): string {
     return trim($notes . ($notes !== '' ? ' | ' : '') . $paymentNote);
 }
 
-function finalize_paystack_intent(mysqli $conn, string $reference, array $verifiedData): array {
+function finalize_paystack_intent(mysqli $conn, string $reference, array $verifiedData, int $expectedBusinessId = 0): array {
     ensure_payment_schema($conn);
     ensure_phase3_tracking_schema($conn);
 
@@ -360,6 +364,12 @@ function finalize_paystack_intent(mysqli $conn, string $reference, array $verifi
         $businessId = intval($intent['business_id'] ?? 0);
         if ($businessId <= 0) {
             throw new Exception('Invalid payment business context.');
+        }
+        if ($expectedBusinessId <= 0 || $businessId !== $expectedBusinessId) {
+            throw new Exception('Payment business does not match the verified gateway account.');
+        }
+        if (($verifiedData['reference'] ?? '') !== $reference || ($verifiedData['status'] ?? '') !== 'success') {
+            throw new Exception('Payment reference or status does not match.');
         }
 
         $existingOrderId = intval($intent['order_id'] ?? 0);
@@ -409,7 +419,7 @@ function finalize_paystack_intent(mysqli $conn, string $reference, array $verifi
                 throw new Exception('Insufficient stock for ' . $product['name'] . ' during finalization.');
             }
 
-            $price = floatval($product['price']);
+            $price = floatval($item['price'] ?? 0);
             $lineTotal = $price * $quantity;
             $subtotal += $lineTotal;
 
@@ -432,7 +442,7 @@ function finalize_paystack_intent(mysqli $conn, string $reference, array $verifi
         $intentTax = round(floatval($intent['tax'] ?? 0), 2);
         $intentShipping = round(floatval($intent['shipping'] ?? 0), 2);
         $intentTotalRounded = round(floatval($intent['total'] ?? 0), 2);
-        if ($subtotal !== $intentSubtotal || $tax !== $intentTax || $shipping !== $intentShipping || $total !== $intentTotalRounded) {
+        if (round($subtotal, 2) !== $intentSubtotal || $tax !== $intentTax || $shipping !== $intentShipping || $total !== $intentTotalRounded) {
             throw new Exception('Cart totals changed before payment finalization.');
         }
 
@@ -447,7 +457,7 @@ function finalize_paystack_intent(mysqli $conn, string $reference, array $verifi
         $orderStmt = $conn->prepare(
             "INSERT INTO orders
             (business_id, customer_name, customer_email, customer_phone, address, city, postal_code, subtotal, tax, shipping, total, notes, status, payment_method, payment_status, payment_reference, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'paid', 'paystack_mobile_money', 'paid', ?, NOW())"
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'paid', 'paystack', 'paid', ?, NOW())"
         );
         $orderStmt->bind_param(
             'issssssddddss',

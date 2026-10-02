@@ -70,10 +70,11 @@ try {
         exit();
     }
 
-    finalize_paystack_intent($conn, $reference, $data);
+    finalize_paystack_intent($conn, $reference, $data, $businessId);
     echo 'ok';
 } catch (Exception $e) {
-    http_response_code(400);
+    error_log('paystack-webhook.php: ' . $e->getMessage());
+    http_response_code(500);
     echo 'error';
 } finally {
     if (isset($conn) && $conn instanceof mysqli) {

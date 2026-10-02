@@ -1,2 +1,3 @@
 php/hq-config.local.php
 backups/
+php/payment-config.local.php

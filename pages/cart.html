@@ -209,9 +209,10 @@
                         <h6 class="mb-3">Payment Method</h6>
                         <div class="mb-3">
                             <select class="form-select" name="payment_method" id="paymentMethod" required>
-                                <option value="mobile_money">Mobile Money (Paystack)</option>
+                                <option value="paystack">Paystack — Card or Mobile Money</option>
                                 <option value="cod">Cash on Delivery</option>
                             </select>
+                            <div class="form-text">Pay securely in Ghana cedis. Your order is confirmed after payment verification.</div>
                         </div>
 
                         <div class="form-check mb-3">
@@ -352,6 +353,10 @@
             const params = new URLSearchParams(window.location.search);
             const paymentType = params.get('payment');
             const reference = params.get('reference') || params.get('trxref');
+            if (params.get('payment_cancel') === '1') {
+                showError('Payment was cancelled. Your cart is saved so you can try again.');
+                return;
+            }
             if (paymentType !== 'paystack' || !reference) return;
 
             try {
@@ -373,10 +378,12 @@
                 }
                 displayCart();
                 showNotification('Payment successful. Order ID: ' + data.order_id);
+                params.delete('payment');
+                params.delete('reference');
+                params.delete('trxref');
+                window.history.replaceState({}, document.title, window.location.pathname + (params.toString() ? '?' + params.toString() : ''));
             } catch (error) {
-                showError(error.message || 'Payment verification failed. If you were charged, contact support with your payment reference.');
-            } finally {
-                window.history.replaceState({}, document.title, window.location.pathname);
+                showError((error.message || 'Payment verification is pending. Refresh to check again.') + ' Payment reference: ' + reference + '. If you were charged, contact the store before paying again.');
             }
         }
 
@@ -421,7 +428,10 @@
 
             const paymentMethod = formData.get('payment_method');
 
-            if (paymentMethod === 'mobile_money') {
+            if (paymentMethod === 'paystack' || paymentMethod === 'mobile_money') {
+                const submitButton = document.querySelector('[type="submit"][form="checkoutForm"]');
+                if (submitButton.disabled) return;
+                submitButton.disabled = true;
                 fetch(withTenantQuery('../php/paystack-init.php'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -439,7 +449,7 @@
                     .then(response => response.json())
                     .then(data => {
                         if (!data.success) {
-                            throw new Error(data.message || 'Unable to start Mobile Money payment.');
+                            throw new Error(data.message || 'Unable to start Paystack payment.');
                         }
                         const safeGatewayRedirect = resolvePaystackRedirectUrl(data.authorization_url);
                         if (!safeGatewayRedirect) {
@@ -449,6 +459,7 @@
                     })
                     .catch(error => {
                         console.error('Paystack init error:', error);
+                        submitButton.disabled = false;
                         showError(error.message || 'Failed to initialize payment.');
                     });
                 return;

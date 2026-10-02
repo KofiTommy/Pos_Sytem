@@ -48,13 +48,13 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
             <div class="col-lg-8">
                 <div class="card border-0 shadow-sm">
                     <div class="card-header bg-light">
-                        <h5 class="mb-0"><i class="fas fa-wallet"></i> Paystack Mobile Money</h5>
+                        <h5 class="mb-0"><i class="fas fa-wallet"></i> Paystack Card &amp; Mobile Money</h5>
                     </div>
                     <div class="card-body">
                         <form id="paymentSettingsForm">
                             <div class="form-check form-switch mb-3">
                                 <input class="form-check-input" type="checkbox" id="enabled">
-                                <label class="form-check-label" for="enabled">Enable Mobile Money Checkout</label>
+                                <label class="form-check-label" for="enabled">Enable Paystack Checkout</label>
                             </div>
                             <div class="form-check form-switch mb-3">
                                 <input class="form-check-input" type="checkbox" id="useSandbox">
