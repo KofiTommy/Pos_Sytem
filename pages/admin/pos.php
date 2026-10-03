@@ -562,6 +562,8 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
                         <p class="mb-1"><strong>Total: ${asMoney(summary.total)}</strong></p>
                         <p class="mb-3">Change: ${asMoney(summary.change_due)}</p>
                         <button class="btn btn-sm btn-outline-success" onclick="printLatestReceipt()">Print Receipt</button>
+                        <a class="btn btn-sm btn-success ms-2" href="../../php/whatsapp-receipt.php?order_id=${Number(data.order_id)}" target="_blank" rel="noopener noreferrer"><i class="fab fa-whatsapp" aria-hidden="true"></i> WhatsApp Receipt</a>
+                        <p class="small mt-2 mb-0">Choose the customer in WhatsApp, review the receipt, then press Send.</p>
                         <a class="btn btn-sm btn-outline-primary ms-2" href="sales.php">View in Sales History</a>
                     </div>
                 `;

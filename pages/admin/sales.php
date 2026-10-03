@@ -336,6 +336,10 @@ $tenantStorefrontUrl = $appBaseUrl . '/index.html'
                     <button class="btn btn-sm btn-outline-success" onclick="printSaleReceipt(${safeOrderId})">
                         <i class="fas fa-print"></i> Print Receipt
                     </button>
+                    <a class="btn btn-sm btn-success" href="../../php/whatsapp-receipt.php?order_id=${safeOrderId}" target="_blank" rel="noopener noreferrer">
+                        <i class="fab fa-whatsapp" aria-hidden="true"></i> WhatsApp Receipt
+                    </a>
+                    <p class="small text-muted mt-2 mb-0">Review the receipt in WhatsApp and press Send. If no customer number is saved, choose a contact.</p>
                 </div>
             `;
 
